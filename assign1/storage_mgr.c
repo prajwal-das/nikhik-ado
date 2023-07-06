@@ -6,150 +6,116 @@
 
 RC ret_code;
 
+static const size_t SIZE = sizeof(char);
+
+/*
+ * This function starts the storage manager. It prints a message indicating that the storage manager is being initialized.
+ */
 void initStorageManager(void) {
-    printf("Initializing Storage Manager...\n");
+    printf("The Storage Manager is being initialized...\n");
+}
+
+int totalNumPages(int size, FILE *openFile) {
+    fseek(openFile, 0, SEEK_END);
+    long records = ftell(openFile);
+    rewind(openFile);
+    return records / size;
+}
+
+RC checkFile(char *fileName) {
+    FILE *opFile = fopen(fileName, "r");
+    if (!opFile) {
+        return RC_FILE_NOT_FOUND;
+    }
+    return RC_OK;
 }
 
 /* Creating a Page File */
 RC createPageFile(char *fileName) {
-    FILE *f = fopen(fileName, "w");
-    char *memory_block = malloc(PAGE_SIZE * sizeof(char));
-    if (f != NULL) {
-        memset(memory_block, '\0', PAGE_SIZE);
-        fwrite(memory_block, sizeof(char), PAGE_SIZE, f);
-        /* free() is used to free memory blocks, so that no memory leakage occurs*/
-        free(memory_block);
-        fclose(f);
-        return RC_OK;
-    } else {
-        free(memory_block);
+    FILE *opFile = fopen(fileName, "w");
+
+    if (!opFile) {
         return RC_FILE_NOT_FOUND;
     }
+
+    char *memBlk = (char *) calloc(PAGE_SIZE, SIZE);
+    fwrite(memBlk, SIZE, PAGE_SIZE, opFile);
+    fclose(opFile);
+    free(memBlk);
+    return RC_OK;
 }
 
-
 RC openPageFile(char *fileName, SM_FileHandle *fHandle) {
-    /*Open the created file*/
-    FILE *f = fopen(fileName, "r+");
-    if (f == NULL) {
-        return RC_FILE_NOT_FOUND;
-    } else {
-        int sum_pages;
-        fseek(f, 0, SEEK_END);
-        int total_pgs = (int) (ftell(f) + 1) / PAGE_SIZE;
-        fHandle->totalNumPages = total_pgs;
-        fHandle->curPagePos = 0;
-        fHandle->fileName = fileName;
-        rewind(f);
-        return RC_OK;
+    RC response = checkFile(fileName);
+    if (response != RC_OK) {
+        return response;
     }
+
+    FILE *opFile = fopen(fileName, "r");
+    fHandle->totalNumPages = totalNumPages(PAGE_SIZE, opFile);
+    fHandle->mgmtInfo = opFile;
+    fHandle->curPagePos = 0;
+    fHandle->fileName = fileName;
+    return response;
 }
 
 RC closePageFile(SM_FileHandle *fHandle) {
-    /*Check if file exists and close it. If not exists, throw error*/
-    FILE *f = fopen(fHandle->fileName, "r+");
-    if (f == NULL)
-        return RC_FILE_NOT_FOUND;
-    else {
-        if (fclose(f) == 0)
-            return RC_OK;
-        else
-            return RC_FILE_NOT_FOUND;
-    }
+    RC response = checkFile(fHandle->fileName);
+    return response;
 }
 
-RC destroyPageFile(char *Fname) {
-    /*Delete the created file and free up the memory used.*/
-    printf("Deletion of File Executed\n");
-    char *mem_block = malloc(PAGE_SIZE * sizeof(char));
-    free(mem_block);
-    if (remove(Fname) ==
-        0)                                       //If File gets destroyed return RC_OK or else return RT_FILE_NOT_FOUND
-        return RC_OK;
-    else
-        return RC_FILE_NOT_FOUND;
+RC destroyPageFile(char *fileName) {
+    return remove(fileName) != 0 ? RC_FILE_NOT_FOUND : RC_OK;
 }
-
 
 RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /*Read the contents of the file present in specified page.*/
-    int seekpage = pageNum * PAGE_SIZE;
-    FILE *f = fopen(fHandle->fileName, "r+");
-    if (f == NULL)
-        return RC_FILE_NOT_FOUND;
-    else {
-        if (pageNum < 0 && pageNum > fHandle->totalNumPages)
-            return RC_READ_NON_EXISTING_PAGE;
-        else {
-            fseek(f, seekpage, SEEK_SET);
-            fread(memPage, sizeof(char), PAGE_SIZE, f);
-            fHandle->curPagePos = pageNum;
-            return RC_OK;
-        }
-    }
+    RC response = checkFile(fHandle->fileName);
+
+    FILE *opFile = fopen(fHandle->fileName, "r+");
+    fseek(opFile, pageNum * PAGE_SIZE, SEEK_SET);
+    fread(memPage, SIZE, PAGE_SIZE, opFile);
+    fHandle->curPagePos = pageNum;
+    return response;
 }
 
-RC getBlockPos(SM_FileHandle *fHandle) {
-    /* Find the pointer's current page position */
-    if (fHandle != NULL) {
-        return ((*fHandle).curPagePos);
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC getBlockPos(SM_FileHandle *fh) {
+    RC response = checkFile(fh->fileName);
+    return response != RC_OK ? response : fh->curPagePos;
 }
 
 
-RC readFirstBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /*Read first block of file if file name exists */
-    if (fHandle != NULL) {
-        return (readBlock(0, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC readFirstBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    int pageNum = 0;
+    return response != RC_OK ? response : readBlock(pageNum, fh, memPage);
 }
 
 
-RC readPreviousBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /* Using the present blocks poosition, we find the previous block and read it's comtents*/
-    if (fHandle != NULL) {
-        int PrevBlock = fHandle->curPagePos - 1;
-        return (readBlock(PrevBlock, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC readPreviousBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    int pageNum = getBlockPos(fh) - 1;
+    return response != RC_OK ? response : readBlock(pageNum, fh, memPage);
 }
 
 
-RC readCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /*Using the present blocks poosition, we read it's comtents*/
-    if (fHandle != NULL) {
-        int PrevBlock = fHandle->curPagePos - 1;
-        return (readBlock(fHandle->curPagePos, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
-
+RC readCurrentBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    int pageNum = getBlockPos(fh);
+    return response != RC_OK ? response : readBlock(pageNum, fh, memPage);
 }
 
 
-RC readNextBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /*Using the present blocks poosition, we find the next block and read it's comtents*/
-    if (fHandle != NULL) {
-        int NextBlock = fHandle->curPagePos + 1;
-        return (readBlock(NextBlock, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC readNextBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    int pageNum = fh->curPagePos + 1;
+    return response != RC_OK ? response : readBlock(pageNum, fh, memPage);
 }
 
-RC readLastBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /*Read contents of the last page in the block*/
-    if (fHandle != NULL) {
-        int LastBlock = fHandle->totalNumPages - 1;
-        return (readBlock(LastBlock, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC readLastBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    return response != RC_OK ? response : readBlock(
+            totalNumPages(SIZE,
+                          fh->mgmtInfo) - 1, fh, memPage);
 }
 
 
