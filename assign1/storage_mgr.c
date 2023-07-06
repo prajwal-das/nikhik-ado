@@ -4,8 +4,6 @@
 #include "storage_mgr.h"
 #include "dberror.h"
 
-RC ret_code;
-
 static const size_t SIZE = sizeof(char);
 
 /*
@@ -15,7 +13,7 @@ void initStorageManager(void) {
     printf("The Storage Manager is being initialized...\n");
 }
 
-int totalNumPages(int size, FILE *openFile) {
+int numberOfPages(int size, FILE *openFile) {
     fseek(openFile, 0, SEEK_END);
     long records = ftell(openFile);
     rewind(openFile);
@@ -52,7 +50,7 @@ RC openPageFile(char *fileName, SM_FileHandle *fHandle) {
     }
 
     FILE *opFile = fopen(fileName, "r");
-    fHandle->totalNumPages = totalNumPages(PAGE_SIZE, opFile);
+    fHandle->totalNumPages = numberOfPages(PAGE_SIZE, opFile);
     fHandle->mgmtInfo = opFile;
     fHandle->curPagePos = 0;
     fHandle->fileName = fileName;
@@ -114,7 +112,7 @@ RC readNextBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
 RC readLastBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
     RC response = checkFile(fh->fileName);
     return response != RC_OK ? response : readBlock(
-            totalNumPages(SIZE,
+            numberOfPages(SIZE,
                           fh->mgmtInfo) - 1, fh, memPage);
 }
 
@@ -129,19 +127,14 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
     FILE *opFile= fopen(fHandle->fileName, "r+");
     fwrite(memPage, SIZE, PAGE_SIZE, opFile);
     fseek(opFile, 0, SEEK_END);
-    fHandle->totalNumPages = totalNumPages(SIZE, opFile);
+    fHandle->totalNumPages = numberOfPages(SIZE, opFile);
     fHandle->curPagePos = pageNum;
     return response;
 }
 
-RC writeCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
-    /* Taking the current position of the pointer, we write the data into that block. */
-    if (fHandle != NULL) {
-        int CurBlock = fHandle->curPagePos;
-        return (writeBlock(CurBlock, fHandle, memPage));
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+RC writeCurrentBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
+    RC response = checkFile(fh->fileName);
+    return response != RC_OK ? response : writeBlock(fh->curPagePos, fh, memPage);
 }
 
 
