@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "storage_mgr.h"
 #include "dberror.h"
 
@@ -68,6 +67,10 @@ RC destroyPageFile(char *fileName) {
 
 RC readBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
     RC response = checkFile(fHandle->fileName);
+
+    if (pageNum < 0) {
+        return RC_READ_NON_EXISTING_PAGE;
+    }
 
     FILE *opFile = fopen(fHandle->fileName, "r+");
     fseek(opFile, pageNum * PAGE_SIZE, SEEK_SET);
