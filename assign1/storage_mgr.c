@@ -58,6 +58,7 @@ RC openPageFile(char *fileName, SM_FileHandle *fHandle) {
 
 RC closePageFile(SM_FileHandle *fHandle) {
     RC response = checkFile(fHandle->fileName);
+    fclose(fHandle->mgmtInfo);
     return response;
 }
 
@@ -123,6 +124,9 @@ RC readLastBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
 RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
 
     RC response = checkFile(fHandle->fileName);
+    if (response != RC_OK) {
+        return response;
+    }
     if (pageNum < 0 || pageNum > fHandle->totalNumPages) {
         return RC_WRITE_FAILED;
     }
@@ -143,6 +147,9 @@ RC writeCurrentBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
 
 RC appendEmptyBlock(SM_FileHandle *fHandle) {
     RC response = checkFile(fHandle->fileName);
+    if (response != RC_OK) {
+        return response;
+    }
     char *memBlk = calloc(PAGE_SIZE, SIZE);
 
     FILE *opFile = fopen(fHandle->fileName, "r+");
@@ -155,8 +162,11 @@ RC appendEmptyBlock(SM_FileHandle *fHandle) {
 }
 
 RC ensureCapacity(int numberOfPages, SM_FileHandle *fHandle) {
-
     RC response = checkFile(fHandle->fileName);
+    if (response != RC_OK) {
+        return response;
+    }
+
     if (fHandle->totalNumPages > numberOfPages) {
         return RC_OK;
     }
