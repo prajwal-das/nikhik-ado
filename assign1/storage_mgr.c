@@ -36,7 +36,7 @@ RC createPageFile(char *fileName) {
         return RC_FILE_NOT_FOUND;
     }
 
-    char *memBlk = (char *) calloc(PAGE_SIZE, SIZE);
+    char *memBlk = calloc(PAGE_SIZE, SIZE);
     fwrite(memBlk, SIZE, PAGE_SIZE, opFile);
     fclose(opFile);
     free(memBlk);
@@ -124,7 +124,7 @@ RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
         return RC_WRITE_FAILED;
     }
 
-    FILE *opFile= fopen(fHandle->fileName, "r+");
+    FILE *opFile = fopen(fHandle->fileName, "r+");
     fwrite(memPage, SIZE, PAGE_SIZE, opFile);
     fseek(opFile, 0, SEEK_END);
     fHandle->totalNumPages = numberOfPages(SIZE, opFile);
@@ -139,35 +139,27 @@ RC writeCurrentBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
 
 
 RC appendEmptyBlock(SM_FileHandle *fHandle) {
-    FILE *f = fopen(fHandle->fileName, "r+");
-    if (fHandle != NULL) {
-        char *FreeBlock;
-        FreeBlock = (char *) calloc(PAGE_SIZE, sizeof(char));
-        fseek(f, 0, SEEK_END);
-        if (fwrite(FreeBlock, 1, PAGE_SIZE, f) == 0)
-            return RC_WRITE_FAILED;
-        else {
-            fHandle->totalNumPages = ftell(f) / PAGE_SIZE;
-            fHandle->curPagePos = fHandle->totalNumPages - 1;
-            free(FreeBlock);
-            return RC_OK;
-        }
-    } else {
-        return RC_FILE_NOT_FOUND;
-    }
+    RC response = checkFile(fHandle->fileName);
+    char *memBlk = calloc(PAGE_SIZE, SIZE);
+
+    FILE *opFile = fopen(fHandle->fileName, "r+");
+    fwrite(memBlk, 1, PAGE_SIZE, opFile);
+    fHandle->curPagePos = numberOfPages(SIZE, opFile) - 1;
+    fHandle->totalNumPages = numberOfPages(SIZE, opFile);
+    free(memBlk);
+
+    return response;
 }
 
 RC ensureCapacity(int numberOfPages, SM_FileHandle *fHandle) {
-    if (fHandle == NULL) {
-        return RC_FILE_HANDLE_NOT_INIT;
-    } else {
-        int pgs = numberOfPages - fHandle->totalNumPages;
-        if (pgs < 0) {
-            return RC_WRITE_FAILED;
-        } else {
-            for (int i = 0; i < pgs; i++)
-                appendEmptyBlock(fHandle);
-            return RC_OK;
-        }
+
+    RC response = checkFile(fHandle->fileName);
+    if (fHandle->totalNumPages > numberOfPages) {
+        return RC_OK;
     }
+
+    while (fHandle->totalNumPages < numberOfPages) {
+        appendEmptyBlock(fHandle);
+    }
+    return response;
 }
