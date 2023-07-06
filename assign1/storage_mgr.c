@@ -121,28 +121,17 @@ RC readLastBlock(SM_FileHandle *fh, SM_PageHandle memPage) {
 
 RC writeBlock(int pageNum, SM_FileHandle *fHandle, SM_PageHandle memPage) {
 
-    FILE *f = fopen(fHandle->fileName, "r+");
-    /*Write contents to into the specified page.*/
+    RC response = checkFile(fHandle->fileName);
     if (pageNum < 0 || pageNum > fHandle->totalNumPages) {
         return RC_WRITE_FAILED;
-    } else {
-        if (fHandle != NULL) {
-            int pageoffset = PAGE_SIZE * pageNum;
-            if (fseek(f, pageoffset, SEEK_SET) == 0) {
-                fwrite(memPage, sizeof(char), PAGE_SIZE, f);
-                (fHandle->curPagePos = pageNum);
-                fseek(f, 0, SEEK_END);
-                int totalP = ftell(f) / PAGE_SIZE;
-                (fHandle->totalNumPages = totalP);
-                return RC_OK;
-            } else {
-                return RC_WRITE_FAILED;
-            }
-        } else {
-            return RC_FILE_NOT_FOUND;
-        }
     }
 
+    FILE *opFile= fopen(fHandle->fileName, "r+");
+    fwrite(memPage, SIZE, PAGE_SIZE, opFile);
+    fseek(opFile, 0, SEEK_END);
+    fHandle->totalNumPages = totalNumPages(SIZE, opFile);
+    fHandle->curPagePos = pageNum;
+    return response;
 }
 
 RC writeCurrentBlock(SM_FileHandle *fHandle, SM_PageHandle memPage) {
