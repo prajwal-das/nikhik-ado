@@ -5,17 +5,19 @@
 
 static const size_t BIT_SIZE = sizeof(char);
 
-/*
- * This function starts the storage manager. It prints a message indicating that the storage manager is being initialized.
- */
 void initStorageManager(void) {
     printf("The Storage Manager is being initialized...\n");
 }
 
+
 int numberOfPages(int size, FILE *storageFile) {
+    // Set the file position indicator to 0
     fseek(storageFile, 0, SEEK_END);
+    // get the current file position
     long records = ftell(storageFile);
+    // reset to starting position
     rewind(storageFile);
+    // number of page can be evaluated by dividing file end position with size of page
     return records / size;
 }
 
@@ -74,6 +76,7 @@ RC readBlock(int pageNum, SM_FileHandle *fh, SM_PageHandle memPage) {
     }
 
     FILE *storageFile = fopen(fh->fileName, "r+");
+    // Set the file position indicator to a starting of `pageNum`
     fseek(storageFile, pageNum * PAGE_SIZE, SEEK_SET);
     fread(memPage, BIT_SIZE, PAGE_SIZE, storageFile);
     fh->curPagePos = pageNum;
@@ -133,6 +136,7 @@ RC writeBlock(int pageNum, SM_FileHandle *fh, SM_PageHandle memPage) {
 
     FILE *storageFile = fopen(fh->fileName, "r+");
     fwrite(memPage, BIT_SIZE, PAGE_SIZE, storageFile);
+    // Set the file position indicator to 0
     fseek(storageFile, 0, SEEK_END);
     fh->totalNumPages = numberOfPages(BIT_SIZE, storageFile);
     fh->curPagePos = pageNum;
