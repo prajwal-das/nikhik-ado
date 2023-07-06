@@ -1,0 +1,93 @@
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CS 525 Assignment 1 - Storage Manager
+
+--------------------------------       
+        Group 15 Members:
+--------------------------------
+
+Name - Milind Prabhakar
+CWID - A20491343
+Email- mprabhakar@hawk.iit.edu
+
+
+Name - Rohan Girish
+CWID - A20465714
+Email- rgirish@hawk.iit.edu
+
+
+Name - Suyog Vilasrao Bachhav
+CWID - A20466885
+Email- sbachhav@hawk.iit.edu
+
+
+--------------------------------
+   Steps to run the code :
+--------------------------------
+
+$ make
+
+This creates an executable file "assign1_gp15". Use the below command to run the executable.
+
+$ ./test_assign1 
+
+After this, we can check the memory leakage by using the below command
+
+$ valgrind --leak-check=full --track-origins=yes ./test_assign1
+
+If the code needs to be run again, we can clean the files and then Redo from Step 1. To clean use below command.
+
+$ make clean
+
+--------------------------------
+    READ FUNCTIONS:
+--------------------------------
+
+readBlock() 		: It is used to read a block in a file that is at PageNum position. If the file gets detected then it will read the entered block of that file else it will throw an error.
+
+getBlockPos() 		: It is used to return the current position of a block.
+
+readFirstBlock() 	: It is used to read the first block in the file.
+
+readPreviousBlock() : This function will help the file to read pages from the previous block with the help of current page position.
+
+readCurrentBlock() 	: It is used to read the current block in the file.
+
+readNextBlock() 	: It is used to read the next block in a file. 
+
+readLastBlock() 	: It is used to read the last block in the file.
+
+--------------------------------
+    WRITE FUNCTIONS:
+--------------------------------
+
+writeBlock()		: It is used to write a page to a disk in a file using page Number.
+
+writeCurrentBlock()	: It is used to write data on page's current postion.
+
+appendEmptyBlock()	: It is used to append an empty page at the end of the file.
+
+ensureCapacity()	: It is used to make sure that the number of pages are as defined. If the file is not found, then it would append an empty block at the end.
+
+--------------------------------
+    OTHER FUNCTIONS:
+--------------------------------
+
+createPageFile()	: It is used to create a page and fill it with 0 bytes. Initial page size is 1.
+
+openPageFile()		: It is used to open  a file. If file is not found, an error is thrown.
+
+closePageFile()		: It is used to close an opened file.
+
+destroyPageFile()	: It is used to delete the page file that has been created.
+ 
+
+--------------------------------
+    TEST CASES:
+--------------------------------
+
+testCreateOpenClose()	: It verifies if the code written, is able to create, open and close and delete a page file.
+
+testSinglePageContent()	: It verified all the cases mentioned above along with which , it checks if the data can be read or written into the mentioned pageFiles.
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
