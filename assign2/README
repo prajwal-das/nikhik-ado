@@ -1,0 +1,69 @@
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+CS 525 Assignment 2 - Buffer Manager
+
+--------------------------------       
+        Group 15 Members:
+--------------------------------
+
+Name - Milind Prabhakar
+CWID - A20491343
+Email- mprabhakar@hawk.iit.edu
+
+
+Name - Rohan Girish
+CWID - A20465714
+Email- rgirish@hawk.iit.edu
+
+
+Name - Suyog Vilasrao Bachhav
+CWID - A20466885
+Email- sbachhav@hawk.iit.edu
+
+
+--------------------------------
+   Steps to run the code :
+--------------------------------
+
+$ make
+
+This creates an executable file "assign2". Use the below command to run the executable.
+
+$ ./assign2 
+
+If the code needs to be run again, we can clean the files and then Redo from Step 1. To clean use below command.
+
+$ make clean
+
+--------------------------------
+    BUFFER MANAGER FUNCTIONS:
+--------------------------------
+
+initBufferPool()        : This function is used to create and initialize a new buffer pool using pageframes and page replacement strategy.
+
+shutdownBufferPool()    : This function  is used to destroy the Buffer pool. 
+    
+forceFlushPool()        : This function is used to write all dirty pages from the buffer pool to the disk . 
+
+markDirty()             : This function is used to mark the page as dirty
+
+unpinPage()             : This function is used to remove the page from the buffer pool.
+        
+forcePage()             : This function is used to write the current content of the page to the page file on the disk. 
+        
+pinPage()               : This function pins a page with a page number.    
+
+--------------------------------
+    TEST CASES:
+--------------------------------
+
+createDummyPages()                      : In this functhon we create dummy pages.
+
+testCreatingAndReadingDummyPages()      : In this function we create a dummy page and read it, once its done the page is destroyed. 
+
+testReadPage()                          : In this function page pin is read and then after reading it the page is unpinned and destroyed.
+    
+testFIFO()                              : This function pins the page, and the page's contents are examined and then unpinned. After the last page is unpinned, a force flush is performed. It also validates the number of read and write inputs. Finally, when everything is OK, the buffer pool is turned off and the testing is over. 
+    
+testLRU()                               : This method reads the first five pages and then unpins them, assuming no changes are made. The pages are read in order to modify the LRU's order. The pages are then replaced and checked to ensure that they are put in LRU sequence. 
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
