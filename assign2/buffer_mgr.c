@@ -10,7 +10,6 @@ Queue *q;
 int rdio, wtio;
 
 
-//framelist is dequed
 RC deQueue() {
     int counter = 0;
     pageInfo *pginformation = q->head;
@@ -61,7 +60,6 @@ RC deQueue() {
     return pageDelete;
 }
 
-//enqueing the page frame
 RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_BufferPool *const bm) {
     pageInfo *newpginformation = (pageInfo *) malloc(sizeof(pageInfo));
 
@@ -111,7 +109,6 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
     return RC_OK;
 }
 
-//Here the page is pinned with page number along with LRU replacement strategy
 RC LRUpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     pageInfo *pginformation = q->head;
     int pageFragment = 0;
@@ -167,8 +164,6 @@ RC LRUpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber p
     return RC_OK;
 }
 
-
-//Here the page is pinned with page number along with FIFO replacement strategy
 RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
     int numPages = bm->numPages;
     int pageFound = 0;
@@ -308,10 +303,13 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
     return RC_OK;
 }
 
-//Creates a new buffer pool with numPages page frames
+
+//  --- main
+
+
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages,
                   ReplacementStrategy strategy, void *stratData) {
-    RC return_code = RC_OK;
+
     rdio = 0;
     char *buffer_Size = (char *) calloc(numPages, sizeof(char) * PAGE_SIZE);
     (*bm).pageFile = (char *) pageFileName;
@@ -365,7 +363,6 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
     return RC_OK;
 }
 
-//Here we destory the buffer pool
 RC shutdownBufferPool(BM_BufferPool *const bm) {
     if (bm == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
@@ -400,7 +397,6 @@ RC shutdownBufferPool(BM_BufferPool *const bm) {
     return RC_OK;
 }
 
-//Causes dirty pages from the buffer pool to be written to disk
 RC forceFlushPool(BM_BufferPool *const bm) {
     if (bm == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
@@ -425,7 +421,6 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     return RC_OK;
 }
 
-//Marks a page as a dirty
 RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page) {
     pageInfo *pginformation;
     if (bm == NULL)
@@ -454,7 +449,6 @@ RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-//Unpin the input page
 RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     pageInfo *pginformation;
     if (bm == NULL)
@@ -482,7 +476,6 @@ RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-//Write the current content of the page back to the page file
 RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     if (bm == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
@@ -522,6 +515,19 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
+RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+    int pno = 0;
+
+    if (pno == 0) {
+        if ((*bm).strategy == RS_FIFO) {
+            pno = FIFOpin(bm, page, pageNum);
+        } else {
+            pno = LRUpin(bm, page, pageNum);
+        }
+    }
+
+    return pno;
+}
 
 PageNumber *getFrameContents(BM_BufferPool *const bm) {
     PageNumber *array[bm->numPages];
@@ -600,19 +606,4 @@ int getNumReadIO(BM_BufferPool *const bm) {
 int getNumWriteIO(BM_BufferPool *const bm) {
     int temp = wtio;
     return temp;
-}
-
-//Pins the page with input page number
-RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
-    int pno = 0;
-
-    if (pno == 0) {
-        if ((*bm).strategy == RS_FIFO) {
-            pno = FIFOpin(bm, page, pageNum);
-        } else {
-            pno = LRUpin(bm, page, pageNum);
-        }
-    }
-
-    return pno;
 }
