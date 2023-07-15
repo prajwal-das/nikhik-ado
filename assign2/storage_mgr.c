@@ -4,6 +4,7 @@
 #include "dberror.h"
 
 static const size_t BIT_SIZE = sizeof(char);
+FILE *mainStorageFileCache;
 
 void initStorageManager(void) {
     printf("The Storage Manager is being initialized...\n");
@@ -22,8 +23,7 @@ int numberOfPages(int size, FILE *storageFile) {
 }
 
 RC checkFile(char *fileName) {
-    FILE *storageFile = fopen(fileName, "r");
-    if (!storageFile) {
+    if (!mainStorageFileCache) {
         return RC_FILE_NOT_FOUND;
     }
     return RC_OK;
@@ -32,6 +32,7 @@ RC checkFile(char *fileName) {
 /* Creating a Page File */
 RC createPageFile(char *fileName) {
     FILE *storageFile = fopen(fileName, "w");
+    mainStorageFileCache = storageFile;
 
     if (!storageFile) {
         return RC_FILE_NOT_FOUND;
@@ -50,7 +51,8 @@ RC openPageFile(char *fileName, SM_FileHandle *fh) {
         return validResponse;
     }
 
-    FILE *storageFile = fopen(fileName, "r");
+    FILE *storageFile = fopen(fileName, "r+");
+    mainStorageFileCache = storageFile;
     fh->totalNumPages = numberOfPages(PAGE_SIZE, storageFile);
     fh->mgmtInfo = storageFile;
     fh->curPagePos = 0;
@@ -60,6 +62,7 @@ RC openPageFile(char *fileName, SM_FileHandle *fh) {
 
 RC closePageFile(SM_FileHandle *fh) {
     RC validResponse = checkFile(fh->fileName);
+    fclose(mainStorageFileCache);
     fclose(fh->mgmtInfo);
     return validResponse;
 }
@@ -75,10 +78,8 @@ RC readBlock(int pageNum, SM_FileHandle *fh, SM_PageHandle memPage) {
         return RC_READ_NON_EXISTING_PAGE;
     }
 
-    FILE *storageFile = fopen(fh->fileName, "r+");
-    // Set the file position indicator to a starting of `pageNum`
-    fseek(storageFile, pageNum * PAGE_SIZE, SEEK_SET);
-    fread(memPage, BIT_SIZE, PAGE_SIZE, storageFile);
+    fseek(mainStorageFileCache, pageNum * PAGE_SIZE, SEEK_SET);
+    fread(memPage, BIT_SIZE, PAGE_SIZE, mainStorageFileCache);
     fh->curPagePos = pageNum;
     return validResponse;
 }
@@ -134,12 +135,12 @@ RC writeBlock(int pageNum, SM_FileHandle *fh, SM_PageHandle memPage) {
         return RC_WRITE_FAILED;
     }
 
-    FILE *storageFile = fopen(fh->fileName, "r+");
-    fwrite(memPage, BIT_SIZE, PAGE_SIZE, storageFile);
-    // Set the file position indicator to 0
-    fseek(storageFile, 0, SEEK_END);
-    fh->totalNumPages = numberOfPages(BIT_SIZE, storageFile);
-    fh->curPagePos = pageNum;
+    if (fseek(mainStorageFileCache, PAGE_SIZE * pageNum, SEEK_SET) == 0) {
+        fwrite(memPage, BIT_SIZE, PAGE_SIZE, mainStorageFileCache);
+        fseek(mainStorageFileCache, 0, SEEK_END);
+        fh->totalNumPages = numberOfPages(BIT_SIZE, mainStorageFileCache);
+        fh->curPagePos = pageNum;
+    }
     return validResponse;
 }
 
