@@ -499,17 +499,15 @@ RC forcePage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
 }
 
 RC pinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
-    int pno = 0;
-
-    if (pno == 0) {
-        if ((*buffManager).strategy == RS_FIFO) {
-            pno = FIFOpin(buffManager, page, pageNum);
-        } else {
-            pno = LRUpin(buffManager, page, pageNum);
-        }
+    RC valRes = checkBufManger(buffManager);
+    switch (buffManager->strategy) {
+        case RS_FIFO:
+            valRes = FIFOpin(buffManager, page, pageNum);
+            break;
+        default:
+            valRes = LRUpin(buffManager, page, pageNum);
     }
-
-    return pno;
+    return valRes;
 }
 
 PageNumber *getFrameContents(BM_BufferPool *const buffManager) {
