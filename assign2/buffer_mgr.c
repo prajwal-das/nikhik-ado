@@ -5,7 +5,6 @@
 #include "storage_mgr.h"
 
 
-SM_FileHandle *fh;
 Queue *q;
 int readsCount, writesCount;
 
@@ -22,6 +21,7 @@ CacheRequiredInfo *initCacheRequiredInfo() {
     CacheRequiredInfo *cacheRequiredInfo = malloc(sizeof(CacheRequiredInfo));
     cacheRequiredInfo->readsCount = 0;
     cacheRequiredInfo->writesCount = 0;
+    cacheRequiredInfo->fh = (SM_FileHandle *) malloc(sizeof(SM_FileHandle));
 }
 
 RC deQueue(BM_BufferPool *const bm) {
@@ -66,7 +66,7 @@ RC deQueue(BM_BufferPool *const bm) {
         CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
         cache->writesCount++;
         writesCount++;
-        writeBlock(pinfo->pageNum, fh, pinfo->bufferData);
+        writeBlock(pinfo->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, pinfo->bufferData);
     }
     q->filledframes--;
 
@@ -98,7 +98,7 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
     }
 
     if ((*q).filledframes != 0) {
-        readBlock(pageNum, fh, pginformation->bufferData);    // read block of data
+        readBlock(pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, pginformation->bufferData);    // read block of data
         if (pgDel_counter == -1)
             pginformation->frameNum = q->head->frameNum + 1;
         else
@@ -112,7 +112,7 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
         q->head = pginformation;
         page->pageNum = pageNum;
     } else {
-        readBlock((*pginformation).pageNum, fh, (*pginformation).bufferData);
+        readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, (*pginformation).bufferData);
         (*page).data = (*pginformation).bufferData;
         (*pginformation).pageNum = pageNum;
         (*page).pageNum = pageNum;
@@ -230,7 +230,7 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
 
             (*q).filledframes = (*q).filledframes + 1;
 
-            readBlock((*pginformation).pageNum, fh, (*pginformation).bufferData);
+            readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, (*pginformation).bufferData);
 
             (*page).data = (*pginformation).bufferData;
             CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
@@ -313,12 +313,12 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
         CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
         cache->writesCount++;
         writesCount++;
-        writeBlock(page_info1->pageNum, fh, page_info1->bufferData);
+        writeBlock(page_info1->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, page_info1->bufferData);
     }
 
     (*addnode).frameNum = page_info1->frameNum;
     (*addnode).bufferData = page_info1->bufferData;
-    readBlock(pageNum, fh, (*addnode).bufferData);
+    readBlock(pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, (*addnode).bufferData);
     (*page).data = (*addnode).bufferData;
     CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
     cache->readsCount++;
@@ -346,7 +346,6 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
     (*bm).numPages = numPages;
     (*bm).strategy = strategy;
     (*bm).mgmtData = cacheRequiredInfo;
-    fh = (SM_FileHandle *) malloc(sizeof(SM_FileHandle));
     q = (Queue *) malloc(sizeof(Queue));
     writesCount = 0;
 
@@ -388,7 +387,7 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
     q->head = pginformation[0];
     q->tail = pginformation[lp];
 
-    openPageFile(bm->pageFile, fh);
+    openPageFile(bm->pageFile, ((CacheRequiredInfo *) bm->mgmtData)->fh);
 
     return RC_OK;
 }
@@ -412,7 +411,7 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     if (temp < q->totalNumOfFrames) {
         if ((*pginformation).fixCount == 0) {
             if ((*pginformation).dirtyPage == 1) {
-                writeBlock((*pginformation).pageNum, fh, (*pginformation).bufferData);
+                writeBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, (*pginformation).bufferData);
                 (*pginformation).dirtyPage = 0;
                 CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
                 cache->writesCount++;
@@ -512,7 +511,7 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
         return 1;
     }
 
-    if (writeBlock(pginformation->pageNum, fh, pginformation->bufferData) != 0) {
+    if (writeBlock(pginformation->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fh, pginformation->bufferData) != 0) {
         return RC_WRITE_FAILED;
     } else {
 
