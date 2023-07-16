@@ -5,21 +5,21 @@
 #include "storage_mgr.h"
 
 
-int readsCnt, writeCnt;
+int readCnt, writeCnt;
 
 typedef struct CacheRequiredInfo {
     SM_FileHandle *fileHandlerPntr;
     int writeCnt;
     char *bufferSize;
-    int readsCnt;
+    int readCnt;
     Queue *queuePointer;
 } CacheRequiredInfo;
 
 
 CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const buffManager) {
     CacheRequiredInfo *cacheRequiredInfo = malloc(sizeof(CacheRequiredInfo));
-    cacheRequiredInfo->readsCnt = 0;
-    readsCnt = 0;
+    cacheRequiredInfo->readCnt = 0;
+    readCnt = 0;
     cacheRequiredInfo->fileHandlerPntr = (SM_FileHandle *) malloc(sizeof(SM_FileHandle));
     cacheRequiredInfo->writeCnt = 0;
     writeCnt = 0;
@@ -108,8 +108,8 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
             pginformation->frameNum = pgDel_counter;
         page->data = pginformation->bufferData;
         CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-        cache->readsCnt++;
-        readsCnt++;
+        cache->readCnt++;
+        readCnt++;
         pginformation->nextPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
         ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->prevPageInfo = pginformation;
         ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head = pginformation;
@@ -125,8 +125,8 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
         (*pginformation).frameNum = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->frameNum;
         ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head = pginformation;
         CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-        cache->readsCnt++;
-        readsCnt++;
+        cache->readCnt++;
+        readCnt++;
     }
     (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes++;
 
@@ -242,8 +242,8 @@ RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
 
             (*page).data = (*pginformation).bufferData;
             CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-            cache->readsCnt++;
-            readsCnt++;
+            cache->readCnt++;
+            readCnt++;
             returncode = 0;
             break;
         } else {
@@ -333,24 +333,17 @@ RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
     readBlock(pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr, (*addnode).bufferData);
     (*page).data = (*addnode).bufferData;
     CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-    cache->readsCnt++;
-    readsCnt++;
+    cache->readCnt++;
+    readCnt++;
     ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail->nextPageInfo = addnode;
     (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail = addnode;
 
     return RC_OK;
 }
 
-
-//  --- main
-
-
-//void addNode(Queue *bufferList, pageInfo *node, int position) {
-//    bufferList->tail->nextPageInfo = node;
-//    bufferList->tail->nextPageInfo->nextPageInfo = bufferList->tail;
-//    bufferList->tail = bufferList->tail->nextPageInfo;
-//    bufferList->tail->frameNum = position;
-//}
+/**
+ *
+ */
 
 pageInfo *getPageInfo(CacheRequiredInfo *cacheRequiredInfo, PageNumber n) {
     pageInfo *curPage = cacheRequiredInfo->queuePointer->head;
@@ -563,7 +556,7 @@ int *getFixCounts(BM_BufferPool *const buffManager) {
 
 int getNumReadIO(BM_BufferPool *const buffManager) {
     CacheRequiredInfo *info = ((CacheRequiredInfo *) buffManager->mgmtData);
-    return readsCnt;
+    return readCnt;
 }
 
 int getNumWriteIO(BM_BufferPool *const buffManager) {
