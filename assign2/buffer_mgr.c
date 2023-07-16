@@ -456,10 +456,6 @@ RC forceFlushPool(BM_BufferPool *const buffManager) {
 
 RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
     RC valRes = checkBufManger(buffManager);
-    if (valRes != RC_OK) {
-        return valRes;
-    }
-
     pageInfo *curNode = getPageInfo(buffManager->mgmtData, page->pageNum);
     if (NULL == curNode)
         return RC_READ_NON_EXISTING_PAGE;
@@ -469,73 +465,37 @@ RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
 }
 
 RC unpinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
-    pageInfo *pginformation;
-    if (buffManager == NULL)
-        return RC_BUFFER_POOL_NOTFOUND;
-
-    if (page == NULL)
-        return RC_ERROR_PAGE;
-
-    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-    int temp = 0;
-
-    while (!(temp >= (*buffManager).numPages)) {
-        if (pginformation->pageNum == page->pageNum)
-            break;
-        pginformation = pginformation->nextPageInfo;
-        temp++;
+    RC valRes = checkBufManger(buffManager);
+    if (valRes != RC_OK) {
+        return valRes;
     }
 
-    if (temp == (*buffManager).numPages) {
+    pageInfo *curNode = getPageInfo(buffManager->mgmtData, page->pageNum);
+    if (curNode == NULL)
         return RC_READ_NON_EXISTING_PAGE;
-    } else {
-        (*pginformation).fixCount = (*pginformation).fixCount - 1;
-    }
 
-    return RC_OK;
+    curNode->fixCount--;
+    return valRes;
 }
 
 RC forcePage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
-    if (buffManager == NULL)
-        return RC_BUFFER_POOL_NOTFOUND;
+    RC valRes = checkBufManger(buffManager);
+    pageInfo *curNode = getPageInfo(buffManager->mgmtData, page->pageNum);
+    if (curNode == NULL)
+        return RC_READ_NON_EXISTING_PAGE;
 
-    if (page == NULL)
-        return RC_ERROR_PAGE;
+    valRes = writeBlock(curNode->pageNum,
+                        ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
+                        curNode->bufferData);
 
-    pageInfo *pginformation;
-    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-    int temp = 0;
-    bool flag = true;
-
-    loop:
-    if (!((*pginformation).pageNum<(*page).pageNum && (*pginformation).pageNum>(*page).pageNum))
-        flag = false;
-    if (flag) {
-        pginformation = (*pginformation).nextPageInfo;
-        temp++;
-    }
-
-    if (flag) {
-        if (temp < (*buffManager).numPages) {
-            goto loop;
-        }
-    }
-
-    if (!flag && (temp < (*buffManager).numPages && temp > (*buffManager).numPages)) {
-        return 1;
-    }
-
-    if (writeBlock(pginformation->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
-                   pginformation->bufferData) != 0) {
+    if (valRes != RC_OK)
         return RC_WRITE_FAILED;
-    } else {
 
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-        cache->writeCnt++;
-        writeCnt++;
-    }
+    CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
+    cache->writeCnt++;
+    writeCnt++;
 
-    return RC_OK;
+    return valRes;
 }
 
 RC pinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
