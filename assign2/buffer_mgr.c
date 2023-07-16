@@ -536,27 +536,17 @@ PageNumber *getFrameContents(BM_BufferPool *const buffManager) {
 }
 
 bool *getDirtyFlags(BM_BufferPool *const buffManager) {
-    bool (*dirty)[buffManager->numPages];
-    dirty = malloc(buffManager->numPages * sizeof(PageNumber));
-    pageInfo *pginformation;
-    int temp = 0;
-    loop1:
-    for (pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-         pginformation != NULL; pginformation = (*pginformation).nextPageInfo) {
-        if (!((*pginformation).frameNum < temp || (*pginformation).frameNum > temp)) {
-            if ((*pginformation).dirtyPage) {
-                (*dirty)[temp] = TRUE;
-            } else {
-                (*dirty)[temp] = FALSE;
-            }
-            break;
-        }
-    }
-    temp++;
-    if (!(temp >= (*buffManager).numPages))
-        goto loop1;
+    RC valRes = checkBufManger(buffManager);
+    bool (*dirFlags)[buffManager->numPages] = calloc(PAGE_SIZE, buffManager->numPages * sizeof(PageNumber));
+    pageInfo *pagInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
 
-    return *dirty;
+    while (pagInfo != NULL) {
+        pageInfo *curPage = pagInfo;
+        pagInfo = pagInfo->nextPageInfo;
+        (*dirFlags)[curPage->frameNum] = curPage->dirtyPage?TRUE:FALSE;
+    }
+
+    return *dirFlags;
 }
 
 
