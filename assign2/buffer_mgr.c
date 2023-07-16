@@ -191,7 +191,7 @@ RC pinStrategyPageLRU(BM_BufferPool *const buffManager, BM_PageHandle *const pag
     return valRes;
 }
 
-RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
+RC pinStrategyPageFIFO(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
     int numPages = buffManager->numPages;
     int pageFound = 0;
 
@@ -461,7 +461,7 @@ RC pinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
     RC valRes = checkBufManger(buffManager);
     switch (buffManager->strategy) {
         case RS_FIFO:
-            valRes = FIFOpin(buffManager, page, pageNum);
+            valRes = pinStrategyPageFIFO(buffManager, page, pageNum);
             break;
         default:
             valRes = pinStrategyPageLRU(buffManager, page, pageNum);
