@@ -16,7 +16,7 @@ typedef struct CacheRequiredInfo {
 } CacheRequiredInfo;
 
 
-CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const bm) {
+CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const buffManager) {
     CacheRequiredInfo *cacheRequiredInfo = malloc(sizeof(CacheRequiredInfo));
     cacheRequiredInfo->readsCnt = 0;
     readsCnt = 0;
@@ -25,37 +25,37 @@ CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const bm) {
     writeCnt = 0;
 }
 
-RC deQueue(BM_BufferPool *const bm) {
+RC deQueue(BM_BufferPool *const buffManager) {
     int counter = 0;
-    pageInfo *pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pageInfo *pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
 
     loop:
-    if (counter == (((CacheRequiredInfo *) bm->mgmtData)->queuePointer->filledframes - 1))
-        (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail = pginformation;
+    if (counter == (((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->filledframes - 1))
+        (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail = pginformation;
     else
         pginformation = (*pginformation).nextPageInfo;
 
     counter++;
 
-    if (counter < (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes)
+    if (counter < (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes)
         goto loop;
 
     // Setting temp variables
     int tailnum;
     int pageDelete = 0;
-    pageInfo *pinfo = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail;
+    pageInfo *pinfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail;
     counter = 0;
 
-    while (counter < ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->totalNumOfFrames) {
+    while (counter < ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->totalNumOfFrames) {
         counter++;
         if ((pinfo->fixCount) == 0) {
             pageDelete = (*pinfo).pageNum;
-            if ((*pinfo).pageNum != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail->pageNum) {
+            if ((*pinfo).pageNum != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail->pageNum) {
                 (*pinfo).nextPageInfo->prevPageInfo = (*pinfo).prevPageInfo;
                 (*pinfo).prevPageInfo->nextPageInfo = (*pinfo).nextPageInfo;
             } else {
-                (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail->prevPageInfo;
-                (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail->nextPageInfo = NULL;
+                (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail->prevPageInfo;
+                (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail->nextPageInfo = NULL;
             }
         } else {
             tailnum = (*pinfo).pageNum;
@@ -64,20 +64,20 @@ RC deQueue(BM_BufferPool *const bm) {
     }
 
     if ((*pinfo).dirtyPage == 1) {
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->writeCnt++;
         writeCnt++;
-        writeBlock(pinfo->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr, pinfo->bufferData);
+        writeBlock(pinfo->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr, pinfo->bufferData);
     }
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->filledframes--;
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->filledframes--;
 
-    if (tailnum == ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail->pageNum)
+    if (tailnum == ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail->pageNum)
         return 0;
 
     return pageDelete;
 }
 
-RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_BufferPool *const bm) {
+RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_BufferPool *const buffManager) {
     pageInfo *newpginformation = (pageInfo *) malloc(sizeof(pageInfo));
 
     (*newpginformation).frameNum = 0;
@@ -94,47 +94,47 @@ RC Enq_pageFragme(BM_PageHandle *const page, const PageNumber pageNum, BM_Buffer
 
     int pgDel_counter = -1;
 
-    if (!((*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes !=
-          (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).totalNumOfFrames)) { // check if frames are full. If full remove pages
-        pgDel_counter = deQueue(bm);
+    if (!((*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes !=
+          (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).totalNumOfFrames)) { // check if frames are full. If full remove pages
+        pgDel_counter = deQueue(buffManager);
     }
 
-    if ((*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes != 0) {
-        readBlock(pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr,
+    if ((*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes != 0) {
+        readBlock(pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
                   pginformation->bufferData);    // read block of data
         if (pgDel_counter == -1)
-            pginformation->frameNum = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head->frameNum + 1;
+            pginformation->frameNum = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->frameNum + 1;
         else
             pginformation->frameNum = pgDel_counter;
         page->data = pginformation->bufferData;
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->readsCnt++;
         readsCnt++;
-        pginformation->nextPageInfo = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
-        ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head->prevPageInfo = pginformation;
-        ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head = pginformation;
+        pginformation->nextPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
+        ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->prevPageInfo = pginformation;
+        ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head = pginformation;
         page->pageNum = pageNum;
     } else {
-        readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr,
+        readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
                   (*pginformation).bufferData);
         (*page).data = (*pginformation).bufferData;
         (*pginformation).pageNum = pageNum;
         (*page).pageNum = pageNum;
-        (*pginformation).nextPageInfo = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
-        ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head->prevPageInfo = pginformation;
-        (*pginformation).frameNum = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head->frameNum;
-        ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head = pginformation;
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+        (*pginformation).nextPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
+        ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->prevPageInfo = pginformation;
+        (*pginformation).frameNum = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head->frameNum;
+        ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head = pginformation;
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->readsCnt++;
         readsCnt++;
     }
-    (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes++;
+    (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes++;
 
     return RC_OK;
 }
 
-RC LRUpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
-    pageInfo *pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+RC LRUpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
+    pageInfo *pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     int pageFragment = 0;
     int temp = 0;
     // Here we are finding the node for the input pagenumber
@@ -147,7 +147,7 @@ RC LRUpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber p
         }
     }
     temp++;
-    if (temp < bm->numPages) {
+    if (temp < buffManager->numPages) {
         goto loop;
     }
 
@@ -156,46 +156,46 @@ RC LRUpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber p
         (*page).data = (*pginformation).bufferData;
         (*pginformation).fixCount++;
 
-        if (pginformation != (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head) {
+        if (pginformation != (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head) {
             (*pginformation).prevPageInfo->nextPageInfo = (*pginformation).nextPageInfo;
         } else {
-            (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head = pginformation;
-            (*pginformation).nextPageInfo = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head;
-            (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head->prevPageInfo = pginformation;
+            (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head = pginformation;
+            (*pginformation).nextPageInfo = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head;
+            (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head->prevPageInfo = pginformation;
         }
 
         if ((*pginformation).nextPageInfo &&
-            pginformation == (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head) {
+            pginformation == (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head) {
             return 0;
-        } else if (pginformation != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head &&
+        } else if (pginformation != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head &&
                    (*pginformation).nextPageInfo) {
             (*pginformation).nextPageInfo->prevPageInfo = (*pginformation).prevPageInfo;
-            if (pginformation == (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail) {
-                (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail = (*pginformation).prevPageInfo;
-                ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail->nextPageInfo = NULL;
+            if (pginformation == (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail) {
+                (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail = (*pginformation).prevPageInfo;
+                ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail->nextPageInfo = NULL;
                 (*pginformation).prevPageInfo = NULL;
-                (*pginformation).nextPageInfo = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+                (*pginformation).nextPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
                 (*pginformation).nextPageInfo->prevPageInfo = pginformation;
-                (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head = pginformation;
+                (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head = pginformation;
             } else {
                 (*pginformation).prevPageInfo = NULL;
-                (*pginformation).nextPageInfo = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head;
+                (*pginformation).nextPageInfo = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head;
                 (*pginformation).nextPageInfo->prevPageInfo = pginformation;
-                (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head = pginformation;
+                (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head = pginformation;
             }
         }
 
     } else if (pageFragment == 0)
-        Enq_pageFragme(page, pageNum, bm);
+        Enq_pageFragme(page, pageNum, buffManager);
     return RC_OK;
 }
 
-RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
-    int numPages = bm->numPages;
+RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
+    int numPages = buffManager->numPages;
     int pageFound = 0;
 
     pageInfo *pgList = NULL;
-    pgList = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pgList = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     pageInfo *pginformation = NULL;
 
     // Here we are finding the node for the input pagenumber
@@ -224,7 +224,7 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
         //break;
     }
 
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     int returncode = -1;
 
     do {
@@ -234,14 +234,14 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
             (*pginformation).pageNum = pageNum;
             (*page).pageNum = pageNum;
 
-            (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes =
-                    (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).filledframes + 1;
+            (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes =
+                    (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).filledframes + 1;
 
-            readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr,
+            readBlock((*pginformation).pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
                       (*pginformation).bufferData);
 
             (*page).data = (*pginformation).bufferData;
-            CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+            CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
             cache->readsCnt++;
             readsCnt++;
             returncode = 0;
@@ -250,8 +250,8 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
             pginformation = pginformation->nextPageInfo;
         }
 
-    } while (((CacheRequiredInfo *) bm->mgmtData)->queuePointer->filledframes <
-             ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->totalNumOfFrames);
+    } while (((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->filledframes <
+             ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->totalNumOfFrames);
 
     if (returncode == 0) {
         return RC_OK;
@@ -267,8 +267,8 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
     addnode->pageNum = pageNum;
     addnode->nextPageInfo = NULL;
     page->pageNum = pageNum;
-    addnode->prevPageInfo = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail;
-    pginformation = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head;
+    addnode->prevPageInfo = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail;
+    pginformation = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head;
 
     temp = 0;
     bool flag = true;
@@ -288,8 +288,8 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
     page_info1 = pginformation;
 
 
-    if (pginformation != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head &&
-        pginformation != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail) {
+    if (pginformation != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head &&
+        pginformation != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail) {
         (*pginformation).nextPageInfo->prevPageInfo = (*pginformation).prevPageInfo;
         (*pginformation).prevPageInfo->nextPageInfo = (*pginformation).nextPageInfo;
     }
@@ -298,44 +298,44 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
         return RC_NO_FREESPACE_ERROR;
     }
 
-    switch (pginformation != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head &&
-            pginformation != ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail) {
+    switch (pginformation != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head &&
+            pginformation != ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail) {
         case true:
             pginformation->prevPageInfo->nextPageInfo = pginformation->nextPageInfo;
             pginformation->nextPageInfo->prevPageInfo = pginformation->prevPageInfo;
             break;
     }
 
-    if ((*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head == pginformation) {
-        (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head = (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head->nextPageInfo;
-        (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).head->prevPageInfo = NULL;
+    if ((*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head == pginformation) {
+        (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head = (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head->nextPageInfo;
+        (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).head->prevPageInfo = NULL;
     }
 
-    switch (pginformation == ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail) {
+    switch (pginformation == ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail) {
         case true:
-            ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail = pginformation->prevPageInfo;
-            addnode->prevPageInfo = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail;
+            ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail = pginformation->prevPageInfo;
+            addnode->prevPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail;
             break;
     }
 
     // If page is dirty, we write back to the disk
 
     if ((*page_info1).dirtyPage == 1) {
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->writeCnt++;
         writeCnt++;
-        writeBlock(page_info1->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr, page_info1->bufferData);
+        writeBlock(page_info1->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr, page_info1->bufferData);
     }
 
     (*addnode).frameNum = page_info1->frameNum;
     (*addnode).bufferData = page_info1->bufferData;
-    readBlock(pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr, (*addnode).bufferData);
+    readBlock(pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr, (*addnode).bufferData);
     (*page).data = (*addnode).bufferData;
-    CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+    CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
     cache->readsCnt++;
     readsCnt++;
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail->nextPageInfo = addnode;
-    (*((CacheRequiredInfo *) bm->mgmtData)->queuePointer).tail = addnode;
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail->nextPageInfo = addnode;
+    (*((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer).tail = addnode;
 
     return RC_OK;
 }
@@ -372,15 +372,15 @@ pageInfo *createNewPageInfo(int position) {
     return pinf;
 }
 
-RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages,
+RC initBufferPool(BM_BufferPool *const buffManager, const char *const pageFileName, const int numPages,
                   ReplacementStrategy strategy, void *stratData) {
 
     char *buffer_Size = (char *) calloc(numPages, sizeof(char) * PAGE_SIZE);
 
-    CacheRequiredInfo *cacheRequiredInfo = initCacheRequiredInfo(bm);
+    CacheRequiredInfo *cacheRequiredInfo = initCacheRequiredInfo(buffManager);
     cacheRequiredInfo->queuePointer = (Queue *) malloc(sizeof(Queue));
     cacheRequiredInfo->bufferSize = buffer_Size;
-    (*bm).mgmtData = cacheRequiredInfo;
+    (*buffManager).mgmtData = cacheRequiredInfo;
 
 
     pageInfo *pageInfoArray[numPages];
@@ -393,38 +393,38 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
         pageInfoArray[temp]->nextPageInfo = pageInfoArray[temp + 1];
         pageInfoArray[temp]->prevPageInfo = pageInfoArray[temp - 1];
     }
-    openPageFile((char *) pageFileName, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr);
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->tail = pageInfoArray[numPages - 1];
-    bm->pageFile = (char *) pageFileName;
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->totalNumOfFrames = numPages;
-    bm->numPages = numPages;
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head = pageInfoArray[0];
-    bm->strategy = strategy;
-    ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->filledframes = 0;
+    openPageFile((char *) pageFileName, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr);
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail = pageInfoArray[numPages - 1];
+    buffManager->pageFile = (char *) pageFileName;
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->totalNumOfFrames = numPages;
+    buffManager->numPages = numPages;
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head = pageInfoArray[0];
+    buffManager->strategy = strategy;
+    ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->filledframes = 0;
 
     return RC_OK;
 }
 
-RC shutdownBufferPool(BM_BufferPool *const bm) {
-    RC valRes = checkBufManger(bm);
-    return (forceFlushPool(bm) != RC_OK ? RC_FAILED_WRITEBACK : 0);
+RC shutdownBufferPool(BM_BufferPool *const buffManager) {
+    RC valRes = checkBufManger(buffManager);
+    return (forceFlushPool(buffManager) != RC_OK ? RC_FAILED_WRITEBACK : 0);
 }
 
-RC forceFlushPool(BM_BufferPool *const bm) {
-    if (bm == NULL)
+RC forceFlushPool(BM_BufferPool *const buffManager) {
+    if (buffManager == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
     int temp = 0;
     pageInfo *pginformation;
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
 
     loop:
-    if (temp < ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->totalNumOfFrames) {
+    if (temp < ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->totalNumOfFrames) {
         if ((*pginformation).fixCount == 0) {
             if ((*pginformation).dirtyPage == 1) {
-                writeBlock((*pginformation).pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr,
+                writeBlock((*pginformation).pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
                            (*pginformation).bufferData);
                 (*pginformation).dirtyPage = 0;
-                CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+                CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
                 cache->writeCnt++;
                 writeCnt++;
             }
@@ -437,16 +437,16 @@ RC forceFlushPool(BM_BufferPool *const bm) {
     return RC_OK;
 }
 
-RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page) {
+RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
     pageInfo *pginformation;
-    if (bm == NULL)
+    if (buffManager == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
 
     if (page == NULL)
         return RC_ERROR_PAGE;
 
     int temp = -1, counter = 0;
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     do {
         if (!((*pginformation).pageNum < (*page).pageNum) && !((*pginformation).pageNum > (*page).pageNum)) {
             break;
@@ -456,34 +456,34 @@ RC markDirty(BM_BufferPool *const bm, BM_PageHandle *const page) {
             return 0;
         }
         counter++;
-    } while (counter < (*bm).numPages);
+    } while (counter < (*buffManager).numPages);
 
-    if (!(temp < (*bm).numPages) && !(temp > (*bm).numPages))
+    if (!(temp < (*buffManager).numPages) && !(temp > (*buffManager).numPages))
         return RC_READ_NON_EXISTING_PAGE;
 
     pginformation->dirtyPage = 1;
     return RC_OK;
 }
 
-RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page) {
+RC unpinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
     pageInfo *pginformation;
-    if (bm == NULL)
+    if (buffManager == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
 
     if (page == NULL)
         return RC_ERROR_PAGE;
 
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     int temp = 0;
 
-    while (!(temp >= (*bm).numPages)) {
+    while (!(temp >= (*buffManager).numPages)) {
         if (pginformation->pageNum == page->pageNum)
             break;
         pginformation = pginformation->nextPageInfo;
         temp++;
     }
 
-    if (temp == (*bm).numPages) {
+    if (temp == (*buffManager).numPages) {
         return RC_READ_NON_EXISTING_PAGE;
     } else {
         (*pginformation).fixCount = (*pginformation).fixCount - 1;
@@ -492,15 +492,15 @@ RC unpinPage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
-    if (bm == NULL)
+RC forcePage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
+    if (buffManager == NULL)
         return RC_BUFFER_POOL_NOTFOUND;
 
     if (page == NULL)
         return RC_ERROR_PAGE;
 
     pageInfo *pginformation;
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     int temp = 0;
     bool flag = true;
 
@@ -513,21 +513,21 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     }
 
     if (flag) {
-        if (temp < (*bm).numPages) {
+        if (temp < (*buffManager).numPages) {
             goto loop;
         }
     }
 
-    if (!flag && (temp < (*bm).numPages && temp > (*bm).numPages)) {
+    if (!flag && (temp < (*buffManager).numPages && temp > (*buffManager).numPages)) {
         return 1;
     }
 
-    if (writeBlock(pginformation->pageNum, ((CacheRequiredInfo *) bm->mgmtData)->fileHandlerPntr,
+    if (writeBlock(pginformation->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
                    pginformation->bufferData) != 0) {
         return RC_WRITE_FAILED;
     } else {
 
-        CacheRequiredInfo *cache = ((CacheRequiredInfo *) bm->mgmtData);
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->writeCnt++;
         writeCnt++;
     }
@@ -535,29 +535,29 @@ RC forcePage(BM_BufferPool *const bm, BM_PageHandle *const page) {
     return RC_OK;
 }
 
-RC pinPage(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber pageNum) {
+RC pinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page, const PageNumber pageNum) {
     int pno = 0;
 
     if (pno == 0) {
-        if ((*bm).strategy == RS_FIFO) {
-            pno = FIFOpin(bm, page, pageNum);
+        if ((*buffManager).strategy == RS_FIFO) {
+            pno = FIFOpin(buffManager, page, pageNum);
         } else {
-            pno = LRUpin(bm, page, pageNum);
+            pno = LRUpin(buffManager, page, pageNum);
         }
     }
 
     return pno;
 }
 
-PageNumber *getFrameContents(BM_BufferPool *const bm) {
-    PageNumber *array[bm->numPages];
-    *array = malloc((*bm).numPages * sizeof(PageNumber));
+PageNumber *getFrameContents(BM_BufferPool *const buffManager) {
+    PageNumber *array[buffManager->numPages];
+    *array = malloc((*buffManager).numPages * sizeof(PageNumber));
 
     pageInfo *pginformation;
     int temp = 0;
     bool flag = true;
     condition1:
-    pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
     flag = true;
     condition2:
     if (pginformation->frameNum == temp) {
@@ -569,18 +569,18 @@ PageNumber *getFrameContents(BM_BufferPool *const bm) {
     if (pginformation != NULL && flag)
         goto condition2;
     temp++;
-    if (temp < bm->numPages)
+    if (temp < buffManager->numPages)
         goto condition1;
     return *array;
 }
 
-bool *getDirtyFlags(BM_BufferPool *const bm) {
-    bool (*dirty)[bm->numPages];
-    dirty = malloc(bm->numPages * sizeof(PageNumber));
+bool *getDirtyFlags(BM_BufferPool *const buffManager) {
+    bool (*dirty)[buffManager->numPages];
+    dirty = malloc(buffManager->numPages * sizeof(PageNumber));
     pageInfo *pginformation;
     int temp = 0;
     loop1:
-    for (pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
+    for (pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
          pginformation != NULL; pginformation = (*pginformation).nextPageInfo) {
         if (!((*pginformation).frameNum < temp || (*pginformation).frameNum > temp)) {
             if ((*pginformation).dirtyPage) {
@@ -592,21 +592,21 @@ bool *getDirtyFlags(BM_BufferPool *const bm) {
         }
     }
     temp++;
-    if (!(temp >= (*bm).numPages))
+    if (!(temp >= (*buffManager).numPages))
         goto loop1;
 
     return *dirty;
 }
 
 
-int *getFixCounts(BM_BufferPool *const bm) {
+int *getFixCounts(BM_BufferPool *const buffManager) {
     pageInfo *pginformation;
     int temp = 0;
-    int (*fxct)[(*bm).numPages];
-    fxct = malloc((*bm).numPages * sizeof(PageNumber));
+    int (*fxct)[(*buffManager).numPages];
+    fxct = malloc((*buffManager).numPages * sizeof(PageNumber));
 
     loop:
-    for (pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head; !(pginformation ==
+    for (pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head; !(pginformation ==
                                                                                      NULL); pginformation = (*pginformation).nextPageInfo) {
         if (!((*pginformation).frameNum < temp || (*pginformation).frameNum > temp)) {
             (*fxct)[temp] = (*pginformation).fixCount;
@@ -614,18 +614,18 @@ int *getFixCounts(BM_BufferPool *const bm) {
         }
     }
     temp++;
-    if (temp < (*bm).numPages) {
+    if (temp < (*buffManager).numPages) {
         goto loop;
     }
     return *fxct;
 }
 
-int getNumReadIO(BM_BufferPool *const bm) {
-    CacheRequiredInfo *info = ((CacheRequiredInfo *) bm->mgmtData);
+int getNumReadIO(BM_BufferPool *const buffManager) {
+    CacheRequiredInfo *info = ((CacheRequiredInfo *) buffManager->mgmtData);
     return readsCnt;
 }
 
-int getNumWriteIO(BM_BufferPool *const bm) {
+int getNumWriteIO(BM_BufferPool *const buffManager) {
     int temp = writeCnt;
     return temp;
 }
