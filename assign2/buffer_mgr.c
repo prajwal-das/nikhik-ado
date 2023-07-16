@@ -567,6 +567,6 @@ int getNumReadIO(BM_BufferPool *const buffManager) {
 }
 
 int getNumWriteIO(BM_BufferPool *const buffManager) {
-    int temp = writeCnt;
-    return temp;
+    CacheRequiredInfo *info = ((CacheRequiredInfo *) buffManager->mgmtData);
+    return writeCnt;
 }
