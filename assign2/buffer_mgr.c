@@ -324,7 +324,8 @@ RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
         CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
         cache->writeCnt++;
         writeCnt++;
-        writeBlock(page_info1->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr, page_info1->bufferData);
+        writeBlock(page_info1->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
+                   page_info1->bufferData);
     }
 
     (*addnode).frameNum = page_info1->frameNum;
@@ -353,10 +354,10 @@ RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
 
 RC checkBufManger(BM_BufferPool *bufferManager) {
     RC valRes = RC_OK;
-    if(!bufferManager) {
+    if (!bufferManager) {
         valRes = RC_BUFFER_POOL_NOTFOUND;
     }
-    if(bufferManager->mgmtData == NULL) {
+    if (bufferManager->mgmtData == NULL) {
         valRes = RC_BUFFER_POOL_NOTFOUND;
     }
     return valRes;
@@ -390,8 +391,15 @@ RC initBufferPool(BM_BufferPool *const buffManager, const char *const pageFileNa
     }
 
     for (int curPage = 0; curPage < numPages; curPage++) {
+
         pageInfoArray[curPage]->nextPageInfo = pageInfoArray[curPage + 1];
         pageInfoArray[curPage]->prevPageInfo = pageInfoArray[curPage - 1];
+
+        if (curPage == 0) {
+            pageInfoArray[curPage]->prevPageInfo = NULL;
+        } else if (curPage == numPages - 1) {
+            pageInfoArray[curPage]->nextPageInfo = NULL;
+        }
     }
     openPageFile((char *) pageFileName, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr);
     ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail = pageInfoArray[numPages - 1];
@@ -412,29 +420,27 @@ RC shutdownBufferPool(BM_BufferPool *const buffManager) {
 
 RC forceFlushPool(BM_BufferPool *const buffManager) {
     RC valRes = checkBufManger(buffManager);
-
-    int temp = 0;
-    pageInfo *pginformation;
-    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-
-    loop:
-    if (temp < ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->totalNumOfFrames) {
-        if ((*pginformation).fixCount == 0) {
-            if ((*pginformation).dirtyPage == 1) {
-                writeBlock((*pginformation).pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
-                           (*pginformation).bufferData);
-                (*pginformation).dirtyPage = 0;
-                CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
-                cache->writeCnt++;
-                writeCnt++;
-            }
-        }
-        pginformation = (*pginformation).nextPageInfo;
-        temp++;
-        goto loop;
+    if (valRes != RC_OK) {
+        return valRes;
     }
 
-    return RC_OK;
+    pageInfo *curHead = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
+    while (NULL != curHead) {
+        if (curHead->dirtyPage != 1) {
+            curHead = curHead->nextPageInfo;
+            continue;
+        }
+
+        valRes = writeBlock((curHead)->pageNum, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr,
+                            (curHead)->bufferData);
+        curHead->dirtyPage = 0;
+        CacheRequiredInfo *cache = ((CacheRequiredInfo *) buffManager->mgmtData);
+        cache->writeCnt++;
+        writeCnt++;
+        curHead = curHead->nextPageInfo;
+    }
+
+    return valRes;
 }
 
 RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
@@ -607,7 +613,7 @@ int *getFixCounts(BM_BufferPool *const buffManager) {
 
     loop:
     for (pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head; !(pginformation ==
-                                                                                     NULL); pginformation = (*pginformation).nextPageInfo) {
+                                                                                              NULL); pginformation = (*pginformation).nextPageInfo) {
         if (!((*pginformation).frameNum < temp || (*pginformation).frameNum > temp)) {
             (*fxct)[temp] = (*pginformation).fixCount;
             break;
