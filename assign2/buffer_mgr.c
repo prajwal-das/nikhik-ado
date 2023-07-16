@@ -352,6 +352,17 @@ RC FIFOpin(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
 //    bufferList->tail->frameNum = position;
 //}
 
+pageInfo *getPageInfo(CacheRequiredInfo *cacheRequiredInfo, PageNumber n) {
+    pageInfo *curPage = cacheRequiredInfo->queuePointer->head;
+    while (curPage != NULL) {
+        if (curPage->pageNum == n)
+            return curPage;
+
+        curPage = curPage->nextPageInfo;
+    }
+    return NULL;
+}
+
 RC checkBufManger(BM_BufferPool *bufferManager) {
     RC valRes = RC_OK;
     if (!bufferManager) {
@@ -444,31 +455,17 @@ RC forceFlushPool(BM_BufferPool *const buffManager) {
 }
 
 RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
-    pageInfo *pginformation;
-    if (buffManager == NULL)
-        return RC_BUFFER_POOL_NOTFOUND;
+    RC valRes = checkBufManger(buffManager);
+    if (valRes != RC_OK) {
+        return valRes;
+    }
 
-    if (page == NULL)
-        return RC_ERROR_PAGE;
-
-    int temp = -1, counter = 0;
-    pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-    do {
-        if (!((*pginformation).pageNum < (*page).pageNum) && !((*pginformation).pageNum > (*page).pageNum)) {
-            break;
-        } else if ((*pginformation).nextPageInfo != NULL) {
-            pginformation = (*pginformation).nextPageInfo;
-        } else {
-            return 0;
-        }
-        counter++;
-    } while (counter < (*buffManager).numPages);
-
-    if (!(temp < (*buffManager).numPages) && !(temp > (*buffManager).numPages))
+    pageInfo *curNode = getPageInfo(buffManager->mgmtData, page->pageNum);
+    if (NULL == curNode)
         return RC_READ_NON_EXISTING_PAGE;
 
-    pginformation->dirtyPage = 1;
-    return RC_OK;
+    curNode->dirtyPage = 1;
+    return valRes;
 }
 
 RC unpinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
