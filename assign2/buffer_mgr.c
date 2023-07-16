@@ -466,9 +466,6 @@ RC markDirty(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
 
 RC unpinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page) {
     RC valRes = checkBufManger(buffManager);
-    if (valRes != RC_OK) {
-        return valRes;
-    }
 
     pageInfo *curNode = getPageInfo(buffManager->mgmtData, page->pageNum);
     if (curNode == NULL)
@@ -551,24 +548,17 @@ bool *getDirtyFlags(BM_BufferPool *const buffManager) {
 
 
 int *getFixCounts(BM_BufferPool *const buffManager) {
-    pageInfo *pginformation;
-    int temp = 0;
-    int (*fxct)[(*buffManager).numPages];
-    fxct = malloc((*buffManager).numPages * sizeof(PageNumber));
+    RC valRes = checkBufManger(buffManager);
+    int (*fxCnt)[buffManager->numPages] = calloc(PAGE_SIZE, buffManager->numPages * sizeof(PageNumber));
+    pageInfo *pagInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
 
-    loop:
-    for (pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head; !(pginformation ==
-                                                                                              NULL); pginformation = (*pginformation).nextPageInfo) {
-        if (!((*pginformation).frameNum < temp || (*pginformation).frameNum > temp)) {
-            (*fxct)[temp] = (*pginformation).fixCount;
-            break;
-        }
+    while (pagInfo != NULL) {
+        pageInfo *curPage = pagInfo;
+        pagInfo = pagInfo->nextPageInfo;
+        (*fxCnt)[curPage->frameNum] = curPage->fixCount;
     }
-    temp++;
-    if (temp < (*buffManager).numPages) {
-        goto loop;
-    }
-    return *fxct;
+
+    return *fxCnt;
 }
 
 int getNumReadIO(BM_BufferPool *const buffManager) {
