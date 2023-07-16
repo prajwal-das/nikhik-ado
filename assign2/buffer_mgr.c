@@ -10,17 +10,27 @@ int readsCnt, writeCnt;
 typedef struct CacheRequiredInfo {
     SM_FileHandle *fileHandlerPntr;
     int writeCnt;
-    int readsCnt;
     char *bufferSize;
+    int readsCnt;
     Queue *queuePointer;
 } CacheRequiredInfo;
 
 
-CacheRequiredInfo *initCacheRequiredInfo() {
+CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const bm) {
     CacheRequiredInfo *cacheRequiredInfo = malloc(sizeof(CacheRequiredInfo));
     cacheRequiredInfo->readsCnt = 0;
-    cacheRequiredInfo->writeCnt = 0;
+    readsCnt = 0;
     cacheRequiredInfo->fileHandlerPntr = (SM_FileHandle *) malloc(sizeof(SM_FileHandle));
+    cacheRequiredInfo->writeCnt = 0;
+    writeCnt = 0;
+}
+
+RC validateBufferManager(BM_BufferPool *const bufferManager) {
+    RC response = RC_OK;
+    if (!bufferManager || bufferManager->numPages <= 0 || bufferManager->mgmtData == NULL) {
+        response = RC_BUFFER_POOL_NOTFOUND;
+    }
+    return response;
 }
 
 RC deQueue(BM_BufferPool *const bm) {
@@ -341,43 +351,43 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
 
 //  --- main
 
+//
+//void addNode(BufferList *bufferList, Node *node, int position) {
+//    bufferList->tail->next = node;
+//    bufferList->tail->next->prev = bufferList->tail;
+//    bufferList->tail = bufferList->tail->next;
+//    bufferList->tail->frameNum = position;
+//}
 
 RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const int numPages,
                   ReplacementStrategy strategy, void *stratData) {
 
     char *buffer_Size = (char *) calloc(numPages, sizeof(char) * PAGE_SIZE);
 
-    CacheRequiredInfo *cacheRequiredInfo = initCacheRequiredInfo();
+    CacheRequiredInfo *cacheRequiredInfo = initCacheRequiredInfo(bm);
     cacheRequiredInfo->queuePointer = (Queue *) malloc(sizeof(Queue));
     cacheRequiredInfo->bufferSize = buffer_Size;
 
-    readsCnt = 0;
     (*bm).pageFile = (char *) pageFileName;
     (*bm).numPages = numPages;
     (*bm).strategy = strategy;
     (*bm).mgmtData = cacheRequiredInfo;
-    writeCnt = 0;
 
-    pageInfo *pginformation[(*bm).numPages];
+    pageInfo *pginformation[numPages];
+
+    for (int temp = 0; temp < numPages; temp++) {
+        pginformation[temp] = (pageInfo *) malloc(sizeof(pageInfo));
+        pginformation[temp]->fixCount = 0;
+        pginformation[temp]->pageNum = -1;
+        pginformation[temp]->frameNum = temp;
+        pginformation[temp]->dirtyPage = 0;
+        pginformation[temp]->bufferData = (char *) calloc(PAGE_SIZE, sizeof(char));
+
+    }
+
+
     int lp = ((*bm).numPages) - 1;
     int temp = 0;
-    loop:
-    pginformation[temp] = (pageInfo *) malloc(sizeof(pageInfo));
-    temp++;
-    if (!(temp > lp)) {
-        goto loop;
-    }
-    temp = 0;
-    loop1:
-    pginformation[temp]->fixCount = 0;
-    pginformation[temp]->pageNum = -1;
-    pginformation[temp]->frameNum = temp;
-    pginformation[temp]->dirtyPage = 0;
-    pginformation[temp]->bufferData = (char *) calloc(PAGE_SIZE, sizeof(char));
-    temp++;
-    if (temp <= lp) {
-        goto loop1;
-    }
     int counter = 0;
     loop2:
     temp = counter;
