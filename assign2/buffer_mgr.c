@@ -356,28 +356,20 @@ RC pinPage(BM_BufferPool *const buffManager, BM_PageHandle *const page, const Pa
 }
 
 PageNumber *getFrameContents(BM_BufferPool *const buffManager) {
-    PageNumber *array[buffManager->numPages];
-    *array = malloc((*buffManager).numPages * sizeof(PageNumber));
+    RC valRes = checkBufManger(buffManager);
+    PageNumber *pageNums = malloc(buffManager->numPages * sizeof(PageNumber));
 
-    pageInfo *curPageInfo;
-    int temp = 0;
-    bool flag = true;
-    condition1:
-    curPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
-    flag = true;
-    condition2:
-    if (curPageInfo->frameNum == temp) {
-        (*array)[temp] = curPageInfo->pageNum;
-        flag = false;
+    for (int position = 0; position < buffManager->numPages; position++) {
+        pageInfo *curPageInfo = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
+        for (; curPageInfo != NULL; curPageInfo = curPageInfo->nextPageInfo) {
+            if (curPageInfo->frameNum != position)
+                continue;
+
+            pageNums[position] = curPageInfo->pageNum;
+            break;
+        }
     }
-    if (flag)
-        curPageInfo = curPageInfo->nextPageInfo;
-    if (curPageInfo != NULL && flag)
-        goto condition2;
-    temp++;
-    if (temp < buffManager->numPages)
-        goto condition1;
-    return *array;
+    return pageNums;
 }
 
 bool *getDirtyFlags(BM_BufferPool *const buffManager) {
