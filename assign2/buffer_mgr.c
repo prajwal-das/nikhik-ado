@@ -385,13 +385,13 @@ RC initBufferPool(BM_BufferPool *const buffManager, const char *const pageFileNa
 
     pageInfo *pageInfoArray[numPages];
 
-    for (int temp = 0; temp < numPages; temp++) {
-        pageInfoArray[temp] = createNewPageInfo(temp);
+    for (int curPage = 0; curPage < numPages; curPage++) {
+        pageInfoArray[curPage] = createNewPageInfo(curPage);
     }
 
-    for (int temp = 0; temp < numPages; temp++) {
-        pageInfoArray[temp]->nextPageInfo = pageInfoArray[temp + 1];
-        pageInfoArray[temp]->prevPageInfo = pageInfoArray[temp - 1];
+    for (int curPage = 0; curPage < numPages; curPage++) {
+        pageInfoArray[curPage]->nextPageInfo = pageInfoArray[curPage + 1];
+        pageInfoArray[curPage]->prevPageInfo = pageInfoArray[curPage - 1];
     }
     openPageFile((char *) pageFileName, ((CacheRequiredInfo *) buffManager->mgmtData)->fileHandlerPntr);
     ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->tail = pageInfoArray[numPages - 1];
@@ -411,8 +411,8 @@ RC shutdownBufferPool(BM_BufferPool *const buffManager) {
 }
 
 RC forceFlushPool(BM_BufferPool *const buffManager) {
-    if (buffManager == NULL)
-        return RC_BUFFER_POOL_NOTFOUND;
+    RC valRes = checkBufManger(buffManager);
+
     int temp = 0;
     pageInfo *pginformation;
     pginformation = ((CacheRequiredInfo *) buffManager->mgmtData)->queuePointer->head;
