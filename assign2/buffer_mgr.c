@@ -25,14 +25,6 @@ CacheRequiredInfo *initCacheRequiredInfo(BM_BufferPool *const bm) {
     writeCnt = 0;
 }
 
-RC validateBufferManager(BM_BufferPool *const bufferManager) {
-    RC response = RC_OK;
-    if (!bufferManager || bufferManager->numPages <= 0 || bufferManager->mgmtData == NULL) {
-        response = RC_BUFFER_POOL_NOTFOUND;
-    }
-    return response;
-}
-
 RC deQueue(BM_BufferPool *const bm) {
     int counter = 0;
     pageInfo *pginformation = ((CacheRequiredInfo *) bm->mgmtData)->queuePointer->head;
@@ -359,6 +351,17 @@ RC FIFOpin(BM_BufferPool *const bm, BM_PageHandle *const page, const PageNumber 
 //    bufferList->tail->frameNum = position;
 //}
 
+RC checkBufManger(BM_BufferPool *bufferManager) {
+    RC valRes = RC_OK;
+    if(!bufferManager) {
+        valRes = RC_BUFFER_POOL_NOTFOUND;
+    }
+    if(bufferManager->mgmtData == NULL) {
+        valRes = RC_BUFFER_POOL_NOTFOUND;
+    }
+    return valRes;
+}
+
 pageInfo *createNewPageInfo(int position) {
     pageInfo *pinf = calloc(PAGE_SIZE, sizeof(pageInfo));
     pinf->frameNum = position;
@@ -403,11 +406,8 @@ RC initBufferPool(BM_BufferPool *const bm, const char *const pageFileName, const
 }
 
 RC shutdownBufferPool(BM_BufferPool *const bm) {
-    if (bm == NULL)
-        return RC_BUFFER_POOL_NOTFOUND;
-
-    int res = forceFlushPool(bm);
-    return (res != RC_OK ? RC_FAILED_WRITEBACK : 0);
+    RC valRes = checkBufManger(bm);
+    return (forceFlushPool(bm) != RC_OK ? RC_FAILED_WRITEBACK : 0);
 }
 
 RC forceFlushPool(BM_BufferPool *const bm) {
