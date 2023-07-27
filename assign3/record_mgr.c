@@ -9,7 +9,7 @@
 RcMngr *rcmngr;
 RC Return_code;
 
-
+// new
 int findFreeSlot(char *data, int recordSize) {
     int cntr = 0;
     int slot = -1;
@@ -500,6 +500,8 @@ extern RC freeSchema(Schema *schema) {
     return RC_OK;
 }
 
+
+
 extern RC createRecord(Record **record, Schema *schema) {
     char minus = '-', blank = '\0';
     while (sizeof(Record) > 0) {
@@ -518,6 +520,7 @@ extern RC createRecord(Record **record, Schema *schema) {
     return RC_ERROR;
 }
 
+//new
 RC attrOffset(Schema *schema, int attrNum, int *result) {
     int cntr = 0;
     *result = 1;
