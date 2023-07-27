@@ -13,7 +13,7 @@ typedef struct CacheRecordManager
 
 CacheRecordManager *cachedRecordManager;
 static const size_t RCMNGR_SIZE = sizeof(RcMngr);
-static const size_t CACHEDRECORDMANAGER_SIZE = sizeof(RcMngr);
+static const size_t CACHED_RECORD_MANAGER_SIZE = sizeof(CacheRecordManager);
 
 RC Return_code;
 
@@ -39,7 +39,7 @@ int findFreeSlot(char *data, int recordSize) {
 
 void setup() {
     initStorageManager();
-    cachedRecordManager = calloc(PAGE_SIZE, CACHEDRECORDMANAGER_SIZE);
+    cachedRecordManager = calloc(PAGE_SIZE, CACHED_RECORD_MANAGER_SIZE);
 }
 
 //DONE
