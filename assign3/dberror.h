@@ -38,6 +38,12 @@ typedef int RC;
 #define RC_PAGE_NOT_FOUND_ERROR 10
 #define RC_BUFFER_ERROR 69
 
+/* Custom Error Codes */
+#define RC_NO_FREESPACE_ERROR 100;
+#define RC_BUFFER_POOL_NOTFOUND 101
+#define RC_PAGENUMBER_INVALID 102
+#define RC_FAILED_WRITEBACK 103
+#define RC_ERROR_PAGE 104
 
 /* holder for error messages */
 extern char *RC_message;
