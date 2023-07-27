@@ -1,6 +1,9 @@
 CC = gcc
 CFLAGS  = -g -Wall 
- 
+
+clean:
+	$(RM) recordmgr test_expr *.o *~
+
 default: recordmgr
 
 recordmgr: test_assign3_1.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o buffer_mgr_stat.o
@@ -14,6 +17,15 @@ test_assign3_1.o: test_assign3_1.c dberror.h storage_mgr.h test_helper.h buffer_
 
 test_expr.o: test_expr.c dberror.h expr.h record_mgr.h tables.h test_helper.h
 	$(CC) $(CFLAGS) -c test_expr.c -lm
+
+
+
+run:
+	./recordmgr
+
+run_expr:
+	./test_expr
+
 
 record_mgr.o: record_mgr.c record_mgr.h buffer_mgr.h storage_mgr.h
 	$(CC) $(CFLAGS) -c  record_mgr.c
@@ -35,12 +47,3 @@ storage_mgr.o: storage_mgr.c storage_mgr.h
 
 dberror.o: dberror.c dberror.h 
 	$(CC) $(CFLAGS) -c dberror.c
-
-clean: 
-	$(RM) recordmgr test_expr *.o *~
-
-run:
-	./recordmgr
-
-run_expr:
-	./test_expr

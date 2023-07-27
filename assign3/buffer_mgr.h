@@ -36,14 +36,30 @@ typedef struct BM_PageHandle {
 
 typedef struct Page
 {
-	int fixCount; 
-	int hit_cnt;
-	SM_PageHandle data; 
-	int index; 
-	PageNumber pageNum; 
-	int dirty_seg; 
+    int fixCount;
+    int hit_cnt;
+    SM_PageHandle data;
+    int index;
+    PageNumber pageNum;
+    int dirty_seg;
 } PageFrame;
 
+typedef struct pageInfo {
+	char *bufferData;
+	int dirtyPage;
+	int fixCount;
+	int frameNum;
+	int pageNum;	
+	struct pageInfo *prevPageInfo;
+	struct pageInfo *nextPageInfo;	
+} pageInfo;
+
+typedef struct Queue {
+	pageInfo *tail;
+	pageInfo *head;	
+	int totalNumOfFrames;
+	int filledframes;	
+} Queue;
 
 // convenience macros
 #define MAKE_POOL()					\
