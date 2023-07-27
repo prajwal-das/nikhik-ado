@@ -6,13 +6,20 @@
 #include "storage_mgr.h"
 #include <ctype.h>
 
-typedef struct CacheRecordManager
-{
+typedef struct CacheRecordManager {
     RcMngr *rcmngr;
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
-static const size_t RCMNGR_SIZE = sizeof(RcMngr);
+static const size_t SIZE_T_SCHEMA = sizeof(Schema);
+static const size_t SIZE_T_DATATYPE = sizeof(DataType);
+static const size_t SIZE_T_INT = sizeof(int);
+static const size_t SIZE_T_CHAR = sizeof(char *);
+static const size_t SIZE_T_FLOAT = sizeof(float);
+static const size_t SIZE_T_BOOLEAN = sizeof(bool);
+static const size_t SIZE_T_VALUE = sizeof(Value);
+static const size_t SIZE_T_RCMNGR = sizeof(RcMngr);
+static const size_t SIZE_T_RECORD = sizeof(RcMngr);
 static const size_t CACHED_RECORD_MANAGER_SIZE = sizeof(CacheRecordManager);
 
 RC Return_code;
@@ -40,7 +47,7 @@ int findFreeSlot(char *data, int recordSize) {
 void setup() {
     initStorageManager();
     cachedRecordManager = calloc(PAGE_SIZE, CACHED_RECORD_MANAGER_SIZE);
-    cachedRecordManager->rcmngr = calloc(PAGE_SIZE, RCMNGR_SIZE);
+    cachedRecordManager->rcmngr = calloc(PAGE_SIZE, SIZE_T_RCMNGR);
 }
 
 //DONE
@@ -62,20 +69,18 @@ extern RC createTable(char *name, Schema *schema) {
     char d[PAGE_SIZE];
     char *hpg = d;
     SM_FileHandle fh;
-    while (initBufferPool(&(cachedRecordManager->rcmngr->buff_pool), name, 100, RS_LRU, NULL) == RC_OK) {
+    initBufferPool(&(cachedRecordManager->rcmngr->buff_pool), name, 100, RS_LRU, NULL);
 
-        *(int *) hpg = 0;
-        hpg = hpg + sizeof(int);
-        *(int *) hpg = 1;
-        hpg = hpg + sizeof(int);
-        if (PAGE_SIZE > 0) {
-            *(int *) hpg = (*schema).numAttr;
-            hpg = hpg + sizeof(int);
-            *(int *) hpg = (*schema).keySize;
-        }
-        hpg = hpg + sizeof(int);
-        break;
+    *(int *) hpg = 0;
+    hpg = hpg + SIZE_T_INT;
+    *(int *) hpg = 1;
+    hpg = hpg + SIZE_T_INT;
+    if (PAGE_SIZE > 0) {
+        *(int *) hpg = (*schema).numAttr;
+        hpg = hpg + SIZE_T_INT;
+        *(int *) hpg = (*schema).keySize;
     }
+    hpg = hpg + SIZE_T_INT;
 
     int cntr = 0;
     do {
@@ -83,11 +88,11 @@ extern RC createTable(char *name, Schema *schema) {
         hpg = hpg + ATR_SIZE;
         *(int *) hpg = (int) (*schema).dataTypes[cntr];
         if (TRUE) {
-            hpg = hpg + sizeof(int);
+            hpg = hpg + SIZE_T_INT;
             *(int *) hpg = (int) (*schema).typeLength[cntr];
         }
         cntr++;
-        hpg = hpg + sizeof(int);
+        hpg = hpg + SIZE_T_INT;
 
     } while (cntr < schema->numAttr);
 
@@ -109,28 +114,28 @@ extern RC openTable(RM_TableData *rel, char *name) {
         rel->name = name;
         int cnt = 0;
         rel->mgmtData = cachedRecordManager->rcmngr;
-        while (sizeof(int) > 0) {
+        while (SIZE_T_INT > 0) {
             pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), 0);
             pg_hndl = (char *) cachedRecordManager->rcmngr->pg_hndl.data;
             cachedRecordManager->rcmngr->t_count = *(int *) pg_hndl;
             break;
         }
-        pg_hndl = pg_hndl + sizeof(int);
+        pg_hndl = pg_hndl + SIZE_T_INT;
 
-        if (sizeof(int) != 0) {
+        if (SIZE_T_INT != 0) {
             cachedRecordManager->rcmngr->freePg = *(int *) pg_hndl;
-            pg_hndl = pg_hndl + sizeof(int);
+            pg_hndl = pg_hndl + SIZE_T_INT;
         }
         a_count = *(int *) pg_hndl;
-        pg_hndl = pg_hndl + sizeof(int);
-        Schema *sch = (Schema *) malloc(sizeof(Schema));
-        while (sizeof(Schema) != 0) {
-            sch->dataTypes = (DataType *) malloc(sizeof(DataType) * a_count);
-            sch->attrNames = (char **) malloc(sizeof(char *) * a_count);
+        pg_hndl = pg_hndl + SIZE_T_INT;
+        Schema *sch = (Schema *) malloc(SIZE_T_SCHEMA);
+        while (SIZE_T_SCHEMA != 0) {
+            sch->dataTypes = (DataType *) malloc(SIZE_T_DATATYPE * a_count);
+            sch->attrNames = (char **) malloc(SIZE_T_CHAR * a_count);
             sch->numAttr = a_count;
             break;
         }
-        sch->typeLength = (int *) malloc(sizeof(int) * a_count);
+        sch->typeLength = (int *) malloc(SIZE_T_INT * a_count);
         for (; cnt < a_count; cnt++)
             sch->attrNames[cnt] = (char *) malloc(ATR_SIZE);
 
@@ -140,11 +145,11 @@ extern RC openTable(RM_TableData *rel, char *name) {
             pg_hndl = pg_hndl + ATR_SIZE;
             if (cnt < sch->numAttr) {
                 sch->dataTypes[cnt] = *(int *) pg_hndl;
-                pg_hndl = sizeof(int) + pg_hndl;
+                pg_hndl = SIZE_T_INT + pg_hndl;
                 sch->typeLength[cnt] = *(int *) pg_hndl;
             } else
                 break;
-            pg_hndl = sizeof(int) + pg_hndl;
+            pg_hndl = SIZE_T_INT + pg_hndl;
             cnt++;
 
         } while (cnt < sch->numAttr);
@@ -241,7 +246,8 @@ extern RC deleteRecord(RM_TableData *rel, RID id) {
         }
 
         if (data != NULL) {
-            if (markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl)) == RC_OK) {
+            if (markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl)) ==
+                RC_OK) {
                 forcePage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
             }
         }
@@ -318,8 +324,8 @@ extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
         RcMngr *tbl_mgr;
         int zero = 0;
         if (openTable(rel, "ScanTable") == RC_OK) {
-            if (sizeof(RcMngr) > 0) {
-                scn_mgr = (RcMngr *) malloc(sizeof(RcMngr));
+            if (SIZE_T_RCMNGR > 0) {
+                scn_mgr = (RcMngr *) malloc(SIZE_T_RCMNGR);
                 scan->mgmtData = scn_mgr;
 
                 scn_mgr->cond = cond;
@@ -355,7 +361,7 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
                 if ((*scnMgr).cond == NULL)
                     return RC_SCAN_CONDITION_NOT_FOUND;
 
-                Value *result = (Value *) malloc(sizeof(Value));
+                Value *result = (Value *) malloc(SIZE_T_VALUE);
 
                 int tot_slots = PAGE_SIZE / getRecordSize(schema);
                 int sc_count = 0;
@@ -464,13 +470,13 @@ extern int getRecordSize(Schema *schema) {
                 size = size + schema->typeLength[cntr];
                 break;
             case DT_INT :
-                size = size + sizeof(int);
+                size = size + SIZE_T_INT;
                 break;
             case DT_FLOAT :
-                size = size + sizeof(float);
+                size = size + SIZE_T_FLOAT;
                 break;
             case DT_BOOL :
-                size = size + sizeof(bool);
+                size = size + SIZE_T_BOOLEAN;
                 break;
         }
         cntr++;
@@ -484,8 +490,8 @@ extern Schema *
 createSchema(int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
     Schema *schema;
 
-    if (sizeof(Schema) > 0) {
-        schema = (Schema *) malloc(sizeof(Schema));
+    if (SIZE_T_SCHEMA > 0) {
+        schema = (Schema *) malloc(SIZE_T_SCHEMA);
         schema->numAttr = numAttr;
         schema->attrNames = attrNames != NULL ? attrNames : NULL;
         schema->dataTypes = dataTypes != NULL ? dataTypes : NULL;
@@ -504,9 +510,9 @@ extern RC freeSchema(Schema *schema) {
 
 extern RC createRecord(Record **record, Schema *schema) {
     char minus = '-', blank = '\0';
-    while (sizeof(Record) > 0) {
+    while (SIZE_T_RECORD > 0) {
 
-        Record *newRecord = (Record *) malloc(sizeof(Record));
+        Record *newRecord = (Record *) malloc(SIZE_T_RECORD);
         newRecord->data = (char *) malloc(getRecordSize(schema));
         newRecord->id.page = newRecord->id.slot = -1;
         if (newRecord != NULL) {
@@ -529,11 +535,11 @@ RC attrOffset(Schema *schema, int attrNum, int *result) {
         *result =
                 schema->dataTypes[cntr] == DT_STRING ? *result + schema->typeLength[cntr] : (schema->dataTypes[cntr] ==
                                                                                              DT_INT ? *result +
-                                                                                                      sizeof(int) :
+                                                                                                      SIZE_T_INT :
                                                                                              (schema->dataTypes[cntr] ==
                                                                                               DT_FLOAT ? *result +
-                                                                                                         sizeof(float) :
-                                                                                              *result + sizeof(bool)));
+                                                                                                         SIZE_T_FLOAT :
+                                                                                              *result + SIZE_T_BOOLEAN));
         cntr++;
     }
     return RC_OK;
@@ -552,7 +558,7 @@ extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
     int offset = 0;
     attrOffset(schema, attrNum, &offset);
     char *dataPointer = (*record).data;
-    Value *attribute = (Value *) malloc(sizeof(Value));
+    Value *attribute = (Value *) malloc(SIZE_T_VALUE);
     if (true)
         dataPointer = dataPointer + offset;
     schema->dataTypes[attrNum] = (attrNum == 1) ? 1 : schema->dataTypes[attrNum];
@@ -571,7 +577,7 @@ extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
             if (true) {
                 int value = 0;
                 if (true)
-                    memcpy(&value, dataPointer, sizeof(int));
+                    memcpy(&value, dataPointer, SIZE_T_INT);
                 (*attribute).dt = DT_INT;
                 (*attribute).v.intV = value;
             }
@@ -580,7 +586,7 @@ extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
             if (true) {
                 float value;
                 if (true)
-                    memcpy(&value, dataPointer, sizeof(float));
+                    memcpy(&value, dataPointer, SIZE_T_FLOAT);
                 (*attribute).dt = DT_FLOAT;
                 (*attribute).v.floatV = value;
             }
@@ -589,7 +595,7 @@ extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
             if (true) {
                 bool value;
                 if (true)
-                    memcpy(&value, dataPointer, sizeof(bool));
+                    memcpy(&value, dataPointer, SIZE_T_BOOLEAN);
                 (*attribute).dt = DT_BOOL;
                 (*attribute).v.boolV = value;
             }
@@ -611,13 +617,13 @@ extern RC setAttr(Record *record, Schema *schema, int attrNum, Value *value) {
             dp = dp + schema->typeLength[attrNum];
         } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_INT) {
             *(int *) dp = value->v.intV;
-            dp = dp + sizeof(int);
+            dp = dp + SIZE_T_INT;
         } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_FLOAT) {
             *(float *) dp = value->v.floatV;
-            dp = dp + sizeof(float);
+            dp = dp + SIZE_T_FLOAT;
         } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_BOOL) {
             *(bool *) dp = value->v.boolV;
-            dp = dp + sizeof(bool);
+            dp = dp + SIZE_T_BOOLEAN;
         }
         break;
     }
