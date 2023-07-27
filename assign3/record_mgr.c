@@ -40,6 +40,7 @@ int findFreeSlot(char *data, int recordSize) {
 void setup() {
     initStorageManager();
     cachedRecordManager = calloc(PAGE_SIZE, CACHED_RECORD_MANAGER_SIZE);
+    cachedRecordManager->rcmngr = calloc(PAGE_SIZE, RCMNGR_SIZE);
 }
 
 //DONE
@@ -58,7 +59,6 @@ extern RC shutdownRecordManager() {
 extern RC createTable(char *name, Schema *schema) {
 
     int ATR_SIZE = 15;
-    cachedRecordManager->rcmngr = calloc(PAGE_SIZE, RCMNGR_SIZE);
     char d[PAGE_SIZE];
     char *hpg = d;
     SM_FileHandle fh;
