@@ -8,7 +8,9 @@
 
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
+    int pnt;
     Schema *schema;
+    int ofS;
     Record *record
 } CacheRecordManager;
 
@@ -521,22 +523,21 @@ extern RC createRecord(Record **record, Schema *schema) {
     return RC_OK;
 }
 
-//new
-RC attrOffset(Schema *schema, int attrNum, int *result) {
-    int cntr = 0;
-    *result = 1;
-    while (cntr < attrNum) {
-
-        *result =
-                schema->dataTypes[cntr] == DT_STRING ? *result + schema->typeLength[cntr] : (schema->dataTypes[cntr] ==
-                                                                                             DT_INT ? *result +
-                                                                                                      SIZE_T_INT :
-                                                                                             (schema->dataTypes[cntr] ==
-                                                                                              DT_FLOAT ? *result +
-                                                                                                         SIZE_T_FLOAT :
-                                                                                              *result +
-                                                                                              SIZE_T_BOOLEAN));
-        cntr++;
+//new DONE
+RC oftS(Schema *schema, int atn, int *ofS) {
+    cachedRecordManager->pnt = 0;
+    *ofS = 1;
+    cachedRecordManager->schema = schema;
+    while (cachedRecordManager->pnt < atn) {
+        *ofS +=
+                cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] == DT_STRING
+                ? cachedRecordManager->schema->typeLength[cachedRecordManager->pnt] : (
+                        cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] ==
+                        DT_INT ? SIZE_T_INT :
+                        (cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] ==
+                         DT_FLOAT ? SIZE_T_FLOAT :
+                         SIZE_T_BOOLEAN));
+        cachedRecordManager->pnt++;
     }
     return RC_OK;
 }
@@ -546,62 +547,32 @@ extern RC freeRecord(Record *record) {
     return NULL == record ? RC_OK : makeSpace(record);
 }
 
-extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
-    Return_code = RC_OK;
-    int offset = 0;
-    attrOffset(schema, attrNum, &offset);
-    char *dataPointer = (*record).data;
-    Value *attribute = (Value *) malloc(SIZE_T_VALUE);
-    if (true)
-        dataPointer = dataPointer + offset;
-    schema->dataTypes[attrNum] = (attrNum == 1) ? 1 : schema->dataTypes[attrNum];
-    switch (schema->dataTypes[attrNum]) {
-        case DT_STRING :
-            if (true) {
-                int length = schema->typeLength[attrNum];
-                (*attribute).v.stringV = (char *) malloc(length + 1);
-                if (true)
-                    strncpy((*attribute).v.stringV, dataPointer, length);
-                (*attribute).dt = DT_STRING;
-                (*attribute).v.stringV[length] = '\0';
-            }
-            break;
-        case DT_INT:
-            if (true) {
-                int value = 0;
-                if (true)
-                    memcpy(&value, dataPointer, SIZE_T_INT);
-                (*attribute).dt = DT_INT;
-                (*attribute).v.intV = value;
-            }
-            break;
-        case DT_FLOAT:
-            if (true) {
-                float value;
-                if (true)
-                    memcpy(&value, dataPointer, SIZE_T_FLOAT);
-                (*attribute).dt = DT_FLOAT;
-                (*attribute).v.floatV = value;
-            }
-            break;
-        case DT_BOOL:
-            if (true) {
-                bool value;
-                if (true)
-                    memcpy(&value, dataPointer, SIZE_T_BOOLEAN);
-                (*attribute).dt = DT_BOOL;
-                (*attribute).v.boolV = value;
-            }
-            break;
+//DONE
+extern RC getAttr(Record *record, Schema *schema, int atn, Value **vl) {
+
+    auto av;
+    cachedRecordManager->schema = schema;
+//    int ofS;
+    oftS(cachedRecordManager->schema, atn, &(cachedRecordManager->ofS));
+    memcpy(&av, record->data + cachedRecordManager->ofS,
+           dTypeLength(cachedRecordManager->schema->dataTypes[atn], cachedRecordManager->schema->typeLength[atn]));
+
+    if (1 == atn) {
+        cachedRecordManager->schema->dataTypes[atn] = 1;
     }
-    *value = attribute;
-    return Return_code;
+    if (cachedRecordManager->schema->dataTypes[atn] == DT_STRING) {
+        MAKE_STRING_VALUE((*vl), record->data + cachedRecordManager->ofS);
+        (*vl)->v.stringV[strlen(record->data + cachedRecordManager->ofS) - 1] = '\0';
+        return RC_OK;
+    }
+    MAKE_VALUE((*vl), cachedRecordManager->schema->dataTypes[atn], av);
+    return RC_OK;
 }
 
 //DONE
 extern RC setAttr(Record *record, Schema *schema, int attrNum, Value *value) {
     int offset = 0;
-    attrOffset(schema, attrNum, &offset);
+    oftS(schema, attrNum, &offset);
 
     memcpy(record->data + offset,
            (schema->dataTypes[attrNum]) == DT_INT ? &((value->v.intV)) : (value->v.stringV),
