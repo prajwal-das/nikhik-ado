@@ -4,10 +4,7 @@ CFLAGS  = -g -Wall
 clean:
 	$(RM) recordmgr test_expr *.o *~
 
-default: recordmgr
 
-recordmgr: test_assign3_1.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o buffer_mgr_stat.o
-	$(CC) $(CFLAGS) -o recordmgr test_assign3_1.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o -lm buffer_mgr_stat.o 
 
 test_expr: test_expr.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o buffer_mgr_stat.o
 	$(CC) $(CFLAGS) -o test_expr test_expr.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o -lm buffer_mgr_stat.o 
@@ -18,8 +15,11 @@ test_assign3_1.o: test_assign3_1.c dberror.h storage_mgr.h test_helper.h buffer_
 test_expr.o: test_expr.c dberror.h expr.h record_mgr.h tables.h test_helper.h
 	$(CC) $(CFLAGS) -c test_expr.c -lm
 
+recordmgr: test_assign3_1.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o buffer_mgr_stat.o
+	$(CC) $(CFLAGS) -o recordmgr test_assign3_1.o dberror.o expr.o record_mgr.o rm_serializer.o storage_mgr.o buffer_mgr.o -lm buffer_mgr_stat.o
 
 
+default: recordmgr
 run:
 	./recordmgr
 
