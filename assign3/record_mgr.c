@@ -545,12 +545,9 @@ RC attrOffset(Schema *schema, int attrNum, int *result) {
     return RC_OK;
 }
 
+//DONE
 extern RC freeRecord(Record *record) {
-    do {
-        free(record);
-    } while (FALSE);
-    return RC_OK;
-
+    return NULL == record ? RC_OK : makeSpace(record);
 }
 
 extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
