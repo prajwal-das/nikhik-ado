@@ -20,7 +20,7 @@ static const size_t SIZE_T_BOOLEAN = sizeof(bool);
 static const size_t SIZE_T_VALUE = sizeof(Value);
 static const size_t SIZE_T_RCMNGR = sizeof(RcMngr);
 static const size_t SIZE_T_RECORD = sizeof(RcMngr);
-static const size_t CACHED_RECORD_MANAGER_SIZE = sizeof(CacheRecordManager);
+static const size_t SIZE_T_CACHED_RECORD_MANAGER = sizeof(CacheRecordManager);
 
 RC Return_code;
 
@@ -46,7 +46,7 @@ int findFreeSlot(char *data, int recordSize) {
 
 void setup() {
     initStorageManager();
-    cachedRecordManager = calloc(PAGE_SIZE, CACHED_RECORD_MANAGER_SIZE);
+    cachedRecordManager = calloc(PAGE_SIZE, SIZE_T_CACHED_RECORD_MANAGER);
     cachedRecordManager->rcmngr = calloc(PAGE_SIZE, SIZE_T_RCMNGR);
 }
 
