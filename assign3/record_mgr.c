@@ -602,27 +602,13 @@ extern RC getAttr(Record *record, Schema *schema, int attrNum, Value **value) {
     return Return_code;
 }
 
+//DONE
 extern RC setAttr(Record *record, Schema *schema, int attrNum, Value *value) {
     int offset = 0;
-    char *dp;
-    Return_code = RC_OK;
-    while (attrOffset(schema, attrNum, &offset) == Return_code) {
-        dp = record->data;
-        dp = dp + offset;
-        if (dp != NULL && (schema->dataTypes[attrNum]) == DT_STRING) {
-            strncpy(dp, (*value).v.stringV, schema->typeLength[attrNum]);
-            dp = dp + schema->typeLength[attrNum];
-        } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_INT) {
-            *(int *) dp = value->v.intV;
-            dp = dp + SIZE_T_INT;
-        } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_FLOAT) {
-            *(float *) dp = value->v.floatV;
-            dp = dp + SIZE_T_FLOAT;
-        } else if (dp != NULL && (schema->dataTypes[attrNum]) == DT_BOOL) {
-            *(bool *) dp = value->v.boolV;
-            dp = dp + SIZE_T_BOOLEAN;
-        }
-        break;
-    }
-    return Return_code;
+    attrOffset(schema, attrNum, &offset);
+
+    memcpy(record->data + offset,
+           (schema->dataTypes[attrNum]) == DT_INT ? &((value->v.intV)) : (value->v.stringV),
+           dTypeLength(schema->dataTypes[attrNum], schema->typeLength[attrNum]));
+    return RC_OK;
 }
