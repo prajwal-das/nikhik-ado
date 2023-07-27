@@ -8,6 +8,7 @@
 
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
+    Schema *schema;
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
@@ -21,6 +22,16 @@ static const size_t SIZE_T_VALUE = sizeof(Value);
 static const size_t SIZE_T_RCMNGR = sizeof(RcMngr);
 static const size_t SIZE_T_RECORD = sizeof(RcMngr);
 static const size_t SIZE_T_CACHED_RECORD_MANAGER = sizeof(CacheRecordManager);
+
+size_t dTypeLength(DataType dataType, int s_size) {
+    size_t size[] = {
+            SIZE_T_INT,
+            s_size,
+            SIZE_T_FLOAT,
+            SIZE_T_BOOLEAN
+    };
+    return size[dataType];
+}
 
 RC Return_code;
 
@@ -162,22 +173,23 @@ extern RC openTable(RM_TableData *rel, char *name) {
     return RC_PINNED_PAGES_IN_BUFFER;
 }
 
+//DONE
 extern RC closeTable(RM_TableData *rel) {
     cachedRecordManager->rcmngr = rel->mgmtData;
-    if (rel->mgmtData != NULL)
-        shutdownBufferPool(&(cachedRecordManager->rcmngr->buff_pool));
-    return RC_OK;
+    RC validRes = cachedRecordManager->rcmngr != NULL ?
+                  shutdownBufferPool(&(cachedRecordManager->rcmngr->buff_pool)) : RC_OK;
+    return validRes == RC_OK ? RC_OK : RC_OK;
 }
 
+//DONE
 extern RC deleteTable(char *name) {
-    int res = destroyPageFile(name);
-    return res;
+    return NULL == name ? RC_OK : destroyPageFile(name);
 }
 
+//DONE
 extern int getNumTuples(RM_TableData *rel) {
     cachedRecordManager->rcmngr = rel->mgmtData;
-    int cnt = cachedRecordManager->rcmngr->t_count;
-    return cnt > 0 ? cnt : 0;
+    return NULL == rel || NULL == rel->mgmtData ? 0 : cachedRecordManager->rcmngr->t_count;
 }
 
 
@@ -459,29 +471,13 @@ extern RC closeScan(RM_ScanHandle *scan) {
     return Return_code;
 }
 
-
+//DONE
 extern int getRecordSize(Schema *schema) {
-
-    int cntr = 0, size = 0;
-
-    do {
-        switch (schema->dataTypes[cntr]) {
-            case DT_STRING :
-                size = size + schema->typeLength[cntr];
-                break;
-            case DT_INT :
-                size = size + SIZE_T_INT;
-                break;
-            case DT_FLOAT :
-                size = size + SIZE_T_FLOAT;
-                break;
-            case DT_BOOL :
-                size = size + SIZE_T_BOOLEAN;
-                break;
-        }
-        cntr++;
-    } while (cntr < schema->numAttr);
-    size = size + 1;
+    cachedRecordManager->schema = schema;
+    int size = 0;
+    for (int i = 0; i < cachedRecordManager->schema->numAttr; i++, size += dTypeLength(
+            cachedRecordManager->schema->dataTypes[i], cachedRecordManager->schema->typeLength[i])) {
+    }
     return size;
 }
 
@@ -539,7 +535,8 @@ RC attrOffset(Schema *schema, int attrNum, int *result) {
                                                                                              (schema->dataTypes[cntr] ==
                                                                                               DT_FLOAT ? *result +
                                                                                                          SIZE_T_FLOAT :
-                                                                                              *result + SIZE_T_BOOLEAN));
+                                                                                              *result +
+                                                                                              SIZE_T_BOOLEAN));
         cntr++;
     }
     return RC_OK;
