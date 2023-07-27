@@ -6,7 +6,7 @@
 #include "storage_mgr.h"
 #include <ctype.h>
 
-RecMgr *rec_mgr;
+RcMngr *rcmngr;
 RC Return_code;
 
 
@@ -43,11 +43,11 @@ extern RC initRecordManager(void *mgmtData) {
 extern RC shutdownRecordManager() {
     Return_code = RC_OK;
     while (Return_code == RC_OK) {
-        int shut = shutdownBufferPool(&rec_mgr->buff_pool);
+        int shut = shutdownBufferPool(&rcmngr->buff_pool);
         if (shut != Return_code)
             NULL;
-        rec_mgr = NULL;
-        free(rec_mgr);
+        rcmngr = NULL;
+        free(rcmngr);
         break;
     }
     return Return_code;
@@ -55,14 +55,14 @@ extern RC shutdownRecordManager() {
 
 extern RC createTable(char *name, Schema *schema) {
 
-    int r_size = sizeof(RecMgr);
+    int r_size = sizeof(RcMngr);
     int ATR_SIZE = 15;
-    rec_mgr = (RecMgr *) malloc(r_size);
+    rcmngr = (RcMngr *) malloc(r_size);
     int cntr = 0;
     char d[PAGE_SIZE];
     char *hpg = d;
     SM_FileHandle fh;
-    while (initBufferPool(&rec_mgr->buff_pool, name, 100, RS_LRU, NULL) == RC_OK) {
+    while (initBufferPool(&rcmngr->buff_pool, name, 100, RS_LRU, NULL) == RC_OK) {
 
         *(int *) hpg = 0;
         hpg = hpg + sizeof(int);
@@ -107,17 +107,17 @@ extern RC openTable(RM_TableData *rel, char *name) {
         int a_count;
         rel->name = name;
         int cnt = 0;
-        rel->mgmtData = rec_mgr;
+        rel->mgmtData = rcmngr;
         while (sizeof(int) > 0) {
-            pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, 0);
-            pg_hndl = (char *) (*rec_mgr).pg_hndl.data;
-            rec_mgr->t_count = *(int *) pg_hndl;
+            pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, 0);
+            pg_hndl = (char *) (*rcmngr).pg_hndl.data;
+            rcmngr->t_count = *(int *) pg_hndl;
             break;
         }
         pg_hndl = pg_hndl + sizeof(int);
 
         if (sizeof(int) != 0) {
-            rec_mgr->freePg = *(int *) pg_hndl;
+            rcmngr->freePg = *(int *) pg_hndl;
             pg_hndl = pg_hndl + sizeof(int);
         }
         a_count = *(int *) pg_hndl;
@@ -149,17 +149,17 @@ extern RC openTable(RM_TableData *rel, char *name) {
         } while (cnt < sch->numAttr);
 
         rel->schema = sch;
-        if (unpinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl) == RC_OK)
-            forcePage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+        if (unpinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl) == RC_OK)
+            forcePage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
         return RC_OK;
     }
     return RC_PINNED_PAGES_IN_BUFFER;
 }
 
 extern RC closeTable(RM_TableData *rel) {
-    RecMgr *rec_mgr = rel->mgmtData;
+    RcMngr *rcmngr = rel->mgmtData;
     if (rel->mgmtData != NULL)
-        shutdownBufferPool(&rec_mgr->buff_pool);
+        shutdownBufferPool(&rcmngr->buff_pool);
     return RC_OK;
 }
 
@@ -169,14 +169,14 @@ extern RC deleteTable(char *name) {
 }
 
 extern int getNumTuples(RM_TableData *rel) {
-    RecMgr *rec_mgr = rel->mgmtData;
-    int cnt = (*rec_mgr).t_count;
+    RcMngr *rcmngr = rel->mgmtData;
+    int cnt = (*rcmngr).t_count;
     return cnt > 0 ? cnt : 0;
 }
 
 
 extern RC insertRecord(RM_TableData *rel, Record *record) {
-    RecMgr *rec_mgr = rel->mgmtData;
+    RcMngr *rcmngr = rel->mgmtData;
     RID *r_ID = &record->id;
 
     char *d, *SLOC;
@@ -184,22 +184,22 @@ extern RC insertRecord(RM_TableData *rel, Record *record) {
     while (rec_size == 0) {
 
         rec_size = getRecordSize(rel->schema);
-        r_ID->page = rec_mgr->freePg;
-        pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, r_ID->page);
+        r_ID->page = rcmngr->freePg;
+        pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, r_ID->page);
     }
-    d = rec_mgr->pg_hndl.data;
+    d = rcmngr->pg_hndl.data;
     r_ID->slot = findFreeSlot(d, rec_size);
     while ((r_ID->slot < 0) && (r_ID->slot == -1)) {
-        unpinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+        unpinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
         int pageNum = r_ID->page + 1;
         r_ID->page = pageNum;
-        pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, pageNum);
-        d = rec_mgr->pg_hndl.data;
+        pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, pageNum);
+        d = rcmngr->pg_hndl.data;
         r_ID->slot = findFreeSlot(d, rec_size);
     }
     if (d != NULL) {
         SLOC = d;
-        markDirty(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+        markDirty(&rcmngr->buff_pool, &rcmngr->pg_hndl);
     }
     do {
 
@@ -210,25 +210,25 @@ extern RC insertRecord(RM_TableData *rel, Record *record) {
     } while (1 != 1);
 
     if (SLOC != d) {
-        unpinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
-        rec_mgr->t_count++;
+        unpinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
+        rcmngr->t_count++;
     }
-    pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, 0);
+    pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, 0);
     return RC_OK;
 }
 
 
 extern RC deleteRecord(RM_TableData *rel, RID id) {
-    RecMgr *rec_mgr = rel->mgmtData;
+    RcMngr *rcmngr = rel->mgmtData;
     Return_code = RC_OK;
     char *data;
     int pg_id = id.page, cntr = 0;
     while (rel->mgmtData != NULL) {
 
-        pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, pg_id);
-        rec_mgr->freePg = pg_id;
-        if ((*rec_mgr).pg_hndl.data != NULL) {
-            data = (*rec_mgr).pg_hndl.data;
+        pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, pg_id);
+        rcmngr->freePg = pg_id;
+        if ((*rcmngr).pg_hndl.data != NULL) {
+            data = (*rcmngr).pg_hndl.data;
         }
         int rec_size = getRecordSize(rel->schema);
         char minus = '-';
@@ -240,8 +240,8 @@ extern RC deleteRecord(RM_TableData *rel, RID id) {
         }
 
         if (data != NULL) {
-            if (markDirty(&rec_mgr->buff_pool, &rec_mgr->pg_hndl) == RC_OK) {
-                forcePage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+            if (markDirty(&rcmngr->buff_pool, &rcmngr->pg_hndl) == RC_OK) {
+                forcePage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
             }
         }
         break;
@@ -258,14 +258,14 @@ extern RC updateRecord(RM_TableData *rel, Record *record) {
     if (rel->mgmtData == NULL)
         return RC_ERROR;
     else {
-        RecMgr *rec_mgr = rel->mgmtData;
-        pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, record->id.page);
+        RcMngr *rcmngr = rel->mgmtData;
+        pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, record->id.page);
     }
     if (getRecordSize(rel->schema) > 0) {
         rel_size = getRecordSize(rel->schema);
     }
     RID id = (*record).id;
-    d = (*rec_mgr).pg_hndl.data;
+    d = (*rcmngr).pg_hndl.data;
 
     while (d != NULL) {
 
@@ -274,9 +274,9 @@ extern RC updateRecord(RM_TableData *rel, Record *record) {
         break;
     }
     memcpy(++d, (*record).data + 1, rel_size - 1);
-    int res = markDirty(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+    int res = markDirty(&rcmngr->buff_pool, &rcmngr->pg_hndl);
     if (res == RC_OK)
-        unpinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+        unpinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
 
     return res;
 }
@@ -288,16 +288,16 @@ extern RC getRecord(RM_TableData *rel, RID id, Record *record) {
     int rec_size = rec_size = getRecordSize(rel->schema);
     while (flg) {
 
-        RecMgr *rec_mgr = rel->mgmtData;
-        pinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl, id.page);
-        char *d = (*rec_mgr).pg_hndl.data;
+        RcMngr *rcmngr = rel->mgmtData;
+        pinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl, id.page);
+        char *d = (*rcmngr).pg_hndl.data;
         d = d + (rec_size * id.slot);
         while (!(*d != '+')) {
 
             record->id = id;
             char *data = record->data;
             memcpy(++data, d + 1, rec_size - 1);
-            unpinPage(&rec_mgr->buff_pool, &rec_mgr->pg_hndl);
+            unpinPage(&rcmngr->buff_pool, &rcmngr->pg_hndl);
             return RC_OK;
             break;
         }
@@ -313,12 +313,12 @@ extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
     int ATR_SIZE = 15;
     while (cond != NULL) {
 
-        RecMgr *scn_mgr;
-        RecMgr *tbl_mgr;
+        RcMngr *scn_mgr;
+        RcMngr *tbl_mgr;
         int zero = 0;
         if (openTable(rel, "ScanTable") == RC_OK) {
-            if (sizeof(RecMgr) > 0) {
-                scn_mgr = (RecMgr *) malloc(sizeof(RecMgr));
+            if (sizeof(RcMngr) > 0) {
+                scn_mgr = (RcMngr *) malloc(sizeof(RcMngr));
                 scan->mgmtData = scn_mgr;
 
                 scn_mgr->cond = cond;
@@ -341,10 +341,10 @@ extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
 extern RC next(RM_ScanHandle *scan, Record *record) {
     Return_code = RC_OK;
     if ((*scan).rel->mgmtData != NULL) {
-        RecMgr *scnMgr = (*scan).mgmtData;
+        RcMngr *scnMgr = (*scan).mgmtData;
         if (scnMgr->cond != NULL) {
 
-            RecMgr *tableManager = (*scan).rel->mgmtData;
+            RcMngr *tableManager = (*scan).rel->mgmtData;
             char *dt;
 
             if ((*scan).rel->mgmtData != NULL) {
@@ -434,13 +434,13 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
 }
 
 extern RC closeScan(RM_ScanHandle *scan) {
-    RecMgr *scnMgr = scan->mgmtData != NULL ? scan->mgmtData : NULL;
-    RecMgr *rec_mgr = (*scan).rel->mgmtData;
+    RcMngr *scnMgr = scan->mgmtData != NULL ? scan->mgmtData : NULL;
+    RcMngr *rcmngr = (*scan).rel->mgmtData;
     Return_code = RC_OK;
     int zero = 0;
 
     while ((scnMgr->scn_count != 0) && (!(scnMgr->scn_count < 0))) {
-        if (unpinPage(&rec_mgr->buff_pool, &scnMgr->pg_hndl) == RC_OK) {
+        if (unpinPage(&rcmngr->buff_pool, &scnMgr->pg_hndl) == RC_OK) {
             scnMgr->scn_count = zero;
             scnMgr->rec_ID.page = 1;
             scnMgr->rec_ID.slot = zero;

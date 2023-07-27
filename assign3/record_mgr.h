@@ -24,7 +24,7 @@ typedef struct RecordManager
 	RM_ScanHandle rm_scanHandle;
 	int freePg;
 	BM_PageHandle pg_hndl;
-} RecMgr;
+} RcMngr;
 
 
 // table and manager
