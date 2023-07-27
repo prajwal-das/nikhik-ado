@@ -35,6 +35,11 @@ size_t dTypeLength(DataType dataType, int s_size) {
 
 RC Return_code;
 
+RC makeSpace(void *var) {
+free(var);
+return RC_OK;
+}
+
 // new
 int findFreeSlot(char *data, int recordSize) {
     int cntr = 0;
@@ -70,8 +75,7 @@ extern RC initRecordManager(void *mgmtData) {
 
 //DONE
 extern RC shutdownRecordManager() {
-    free(cachedRecordManager);
-    return true ? RC_OK : NULL;
+    return true ? RC_OK : makeSpace(cachedRecordManager);
 }
 
 extern RC createTable(char *name, Schema *schema) {
@@ -486,21 +490,17 @@ extern Schema *
 createSchema(int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
     Schema *schema;
 
-    if (SIZE_T_SCHEMA > 0) {
-        schema = (Schema *) malloc(SIZE_T_SCHEMA);
-        schema->numAttr = numAttr;
-        schema->attrNames = attrNames != NULL ? attrNames : NULL;
-        schema->dataTypes = dataTypes != NULL ? dataTypes : NULL;
-        schema->typeLength = typeLength != NULL ? typeLength : 0;
-        schema->keySize = keySize;
-        schema->keyAttrs = keys;
-    }
+    schema = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
+    schema->numAttr = numAttr;
+    schema->attrNames = attrNames;
+    schema->dataTypes = dataTypes;
+    schema->typeLength = typeLength;
     return schema;
 }
 
+//DONE
 extern RC freeSchema(Schema *schema) {
-    free(schema);
-    return RC_OK;
+    return NULL == schema ? RC_OK : makeSpace(cachedRecordManager->schema);
 }
 
 
