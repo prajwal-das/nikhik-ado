@@ -9,7 +9,7 @@
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
     Schema *schema;
-    Schema *sschema;
+    Record *record
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
@@ -506,23 +506,19 @@ extern RC freeSchema(Schema *schema) {
     return NULL == schema ? RC_OK : makeSpace(cachedRecordManager->schema);
 }
 
-
+//DONE
 extern RC createRecord(Record **record, Schema *schema) {
-    char minus = '-', blank = '\0';
-    while (SIZE_T_RECORD > 0) {
 
-        Record *newRecord = (Record *) malloc(SIZE_T_RECORD);
-        newRecord->data = (char *) malloc(getRecordSize(schema));
-        newRecord->id.page = newRecord->id.slot = -1;
-        if (newRecord != NULL) {
-            char *dp = newRecord->data;
-            *dp = minus;
-            *(++dp) = blank;
-        }
-        *record = newRecord;
-        return RC_OK;
+    cachedRecordManager->record = malloc(SIZE_T_RECORD);
+    *record = cachedRecordManager->record;
+    cachedRecordManager->record->data = malloc(getRecordSize(schema));
+    cachedRecordManager->record->id.page = cachedRecordManager->record->id.slot = -1;
+    if (cachedRecordManager->record != NULL) {
+        char *crd = cachedRecordManager->record->data;
+        *cachedRecordManager->record->data = '-';
+        *(++crd) = '\0';
     }
-    return RC_ERROR;
+    return RC_OK;
 }
 
 //new
