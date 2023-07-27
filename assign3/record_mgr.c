@@ -9,6 +9,7 @@
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
     Schema *schema;
+    Schema *sschema;
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
@@ -36,8 +37,8 @@ size_t dTypeLength(DataType dataType, int s_size) {
 RC Return_code;
 
 RC makeSpace(void *var) {
-free(var);
-return RC_OK;
+    free(var);
+    return RC_OK;
 }
 
 // new
@@ -485,16 +486,18 @@ extern int getRecordSize(Schema *schema) {
     return size;
 }
 
-
+//DONE
 extern Schema *
-createSchema(int numAttr, char **attrNames, DataType *dataTypes, int *typeLength, int keySize, int *keys) {
+createSchema(int nt, char **an, DataType *dt, int *tl, int keySize, int *keys) {
     Schema *schema;
 
     schema = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
-    schema->numAttr = numAttr;
-    schema->attrNames = attrNames;
-    schema->dataTypes = dataTypes;
-    schema->typeLength = typeLength;
+    if (an != NULL)
+        schema->attrNames = an;
+    schema->numAttr = nt;
+    if (dt != NULL)
+        schema->dataTypes = dt;
+    schema->typeLength = tl;
     return schema;
 }
 
