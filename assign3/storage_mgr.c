@@ -10,8 +10,8 @@ RC ret_code;
 void initStorageManager (void)
 {
     /*First call made toi initStorage*/
-    // printf("Initializing the Storage Manager");
-	// printf("\nStorage Manager Initialized");
+    printf("Initializing the Storage Manager");
+	printf("\nStorage Manager Initialized");
 }
 
 RC createPageFile (char *fileName)
@@ -44,11 +44,10 @@ RC openPageFile(char *fileName, SM_FileHandle *fHandle)
       { 
          return RC_FILE_NOT_FOUND;                                     
       }
-      else{
-        int sum_pages=0;                                           
+      else{                                       
         fseek(f, 0, SEEK_END);                                
         int total_pgs = (int)(ftell(f)+1)/PAGE_SIZE;                   
-        fHandle->totalNumPages = total_pgs+sum_pages;                    
+        fHandle->totalNumPages = total_pgs;                    
         fHandle->curPagePos = 0;                               
         fHandle->fileName = fileName;                          
         rewind(f);                                         
@@ -73,7 +72,7 @@ RC closePageFile(SM_FileHandle *fHandle)
 RC destroyPageFile (char *Fname)
 {
         /*Delete the created file and free up the memory used.*/       
-        // printf("Deletion of File Executed\n");
+        printf("Deletion of File Executed\n");
         char *mem_block = malloc(PAGE_SIZE * sizeof(char)); 
         free(mem_block);
         if(remove(Fname)==0)                                       //If File gets destroyed return RC_OK or else return RT_FILE_NOT_FOUND 
@@ -151,8 +150,7 @@ RC readCurrentBlock (SM_FileHandle *fHandle, SM_PageHandle memPage)
     /*Using the present blocks poosition, we read it's comtents*/
     if(fHandle != NULL)                                                     
     {
-        int PrevBlock=fHandle->curPagePos-1;
-	    return(readBlock (PrevBlock+1, fHandle, memPage));                               
+	    return(readBlock (fHandle->curPagePos, fHandle, memPage));                               
     }
     else
     {
