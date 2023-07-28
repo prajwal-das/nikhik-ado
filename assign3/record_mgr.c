@@ -8,20 +8,20 @@
 
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
-    RM_TableData *rel;
-    RM_ScanHandle *scan;
+    RM_TableData *tab;
+    RM_ScanHandle *scn;
     int pnt;
     char *rcd;
-    Schema *schema;
+    Schema *shm;
     int ofS;
     int size;
     RID id;
     RID *rid;
     SM_PageHandle pg_hndl;
-    SM_FileHandle fh;
-    Schema *newschema;
+    SM_FileHandle flhnd;
+    Schema *shmN;
     char page[PAGE_SIZE];
-    Record *record;
+    Record *recd;
     RcMngr *rcmngrS;
     RcMngr *rcmngrTb;
     Value *val;
@@ -70,16 +70,16 @@ int availSpot(char *data, int recordSize) {
 //DONE
 Schema *createNewSchema() {
 
-    cachedRecordManager->newschema = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
-    cachedRecordManager->newschema->dataTypes = calloc(PAGE_SIZE, SIZE_T_DATATYPE * cachedRecordManager->pnt);
-    cachedRecordManager->newschema->attrNames = calloc(PAGE_SIZE, SIZE_T_CHAR * cachedRecordManager->pnt);
-    cachedRecordManager->newschema->typeLength = calloc(PAGE_SIZE, SIZE_T_INT * cachedRecordManager->pnt);
-    cachedRecordManager->newschema->numAttr = cachedRecordManager->pnt;
+    cachedRecordManager->shmN = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
+    cachedRecordManager->shmN->dataTypes = calloc(PAGE_SIZE, SIZE_T_DATATYPE * cachedRecordManager->pnt);
+    cachedRecordManager->shmN->attrNames = calloc(PAGE_SIZE, SIZE_T_CHAR * cachedRecordManager->pnt);
+    cachedRecordManager->shmN->typeLength = calloc(PAGE_SIZE, SIZE_T_INT * cachedRecordManager->pnt);
+    cachedRecordManager->shmN->numAttr = cachedRecordManager->pnt;
 
 
     while (cachedRecordManager->pnt-- >= 0)
-        cachedRecordManager->newschema->attrNames[cachedRecordManager->pnt] = (char *) malloc(15);
-    return cachedRecordManager->newschema;
+        cachedRecordManager->shmN->attrNames[cachedRecordManager->pnt] = (char *) malloc(15);
+    return cachedRecordManager->shmN;
 }
 
 //DONE
@@ -105,7 +105,7 @@ extern RC shutdownRecordManager() {
 extern RC createTable(char *tabName, Schema *schema) {
 
     cachedRecordManager->rcd = cachedRecordManager->page;
-    cachedRecordManager->schema = schema;
+    cachedRecordManager->shm = schema;
     initBufferPool(&(cachedRecordManager->rcmngr->buff_pool), tabName, 100, RS_FIFO, NULL);
 
     { *cachedRecordManager->rcd = 0; }
@@ -113,33 +113,33 @@ extern RC createTable(char *tabName, Schema *schema) {
     { *cachedRecordManager->rcd = 1; }
     { cachedRecordManager->rcd += SIZE_T_INT; }
 
-    *cachedRecordManager->rcd = (*cachedRecordManager->schema).numAttr;
+    *cachedRecordManager->rcd = (*cachedRecordManager->shm).numAttr;
     cachedRecordManager->rcd = cachedRecordManager->rcd + SIZE_T_INT;
 
 
     for (cachedRecordManager->pnt = 0;
-         cachedRecordManager->pnt < cachedRecordManager->schema->numAttr;
+         cachedRecordManager->pnt < cachedRecordManager->shm->numAttr;
          cachedRecordManager->pnt++) {
 
-        { strncpy(cachedRecordManager->rcd, cachedRecordManager->schema->attrNames[cachedRecordManager->pnt], 15); }
+        { strncpy(cachedRecordManager->rcd, cachedRecordManager->shm->attrNames[cachedRecordManager->pnt], 15); }
         { cachedRecordManager->rcd += 15; }
-        { *cachedRecordManager->rcd = cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt]; }
+        { *cachedRecordManager->rcd = cachedRecordManager->shm->dataTypes[cachedRecordManager->pnt]; }
         { cachedRecordManager->rcd += SIZE_T_INT; }
-        { *cachedRecordManager->rcd = cachedRecordManager->schema->typeLength[cachedRecordManager->pnt]; }
+        { *cachedRecordManager->rcd = cachedRecordManager->shm->typeLength[cachedRecordManager->pnt]; }
     }
 
     if (createPageFile(tabName) != RC_OK) {}
-    if (openPageFile(tabName, &cachedRecordManager->fh) != RC_OK) {}
-    if (writeBlock(0, &cachedRecordManager->fh, cachedRecordManager->page) != RC_OK) {}
+    if (openPageFile(tabName, &cachedRecordManager->flhnd) != RC_OK) {}
+    if (writeBlock(0, &cachedRecordManager->flhnd, cachedRecordManager->page) != RC_OK) {}
 
     return RC_OK;
 }
 
 //DONE
 extern RC openTable(RM_TableData *rel, char *name) {
-    cachedRecordManager->rel = rel;
-    cachedRecordManager->rel->mgmtData = cachedRecordManager->rcmngr;
-    cachedRecordManager->rel->name = name;
+    cachedRecordManager->tab = rel;
+    cachedRecordManager->tab->mgmtData = cachedRecordManager->rcmngr;
+    cachedRecordManager->tab->name = name;
     pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), 0);
     cachedRecordManager->pg_hndl = (char *) cachedRecordManager->rcmngr->pg_hndl.data;
 
@@ -154,15 +154,15 @@ extern RC openTable(RM_TableData *rel, char *name) {
     createNewSchema();
 
     for (cachedRecordManager->pnt = 0;
-         cachedRecordManager->pnt < cachedRecordManager->newschema->numAttr; cachedRecordManager->pnt++) {
-        strncpy(cachedRecordManager->newschema->attrNames[cachedRecordManager->pnt], cachedRecordManager->pg_hndl, 15);
+         cachedRecordManager->pnt < cachedRecordManager->shmN->numAttr; cachedRecordManager->pnt++) {
+        strncpy(cachedRecordManager->shmN->attrNames[cachedRecordManager->pnt], cachedRecordManager->pg_hndl, 15);
         cachedRecordManager->pg_hndl += 15;
-        cachedRecordManager->newschema->dataTypes[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
+        cachedRecordManager->shmN->dataTypes[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
         cachedRecordManager->pg_hndl += SIZE_T_INT;
-        cachedRecordManager->newschema->typeLength[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
+        cachedRecordManager->shmN->typeLength[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
     }
 
-    cachedRecordManager->rel->schema = cachedRecordManager->newschema;
+    cachedRecordManager->tab->schema = cachedRecordManager->shmN;
     return RC_OK;
 }
 
@@ -188,8 +188,8 @@ extern int getNumTuples(RM_TableData *rel) {
 //DONE
 extern RC insertRecord(RM_TableData *rel, Record *record) {
     cachedRecordManager->rcmngr = rel->mgmtData;
-    cachedRecordManager->record = record;
-    cachedRecordManager->rid = &cachedRecordManager->record->id;
+    cachedRecordManager->recd = record;
+    cachedRecordManager->rid = &cachedRecordManager->recd->id;
     cachedRecordManager->size = getRecordSize(rel->schema);
     cachedRecordManager->rid->page = cachedRecordManager->rcmngr->freePg;
     pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
@@ -209,7 +209,7 @@ extern RC insertRecord(RM_TableData *rel, Record *record) {
     cachedRecordManager->rcd =
             cachedRecordManager->rcmngr->pg_hndl.data + (cachedRecordManager->rid->slot * cachedRecordManager->size);
     *(cachedRecordManager->rcd) = '+';
-    memcpy(++(cachedRecordManager->rcd), cachedRecordManager->record->data + 1, cachedRecordManager->size - 1);
+    memcpy(++(cachedRecordManager->rcd), cachedRecordManager->recd->data + 1, cachedRecordManager->size - 1);
 
     return RC_OK;
 }
@@ -236,15 +236,15 @@ extern RC deleteRecord(RM_TableData *rel, RID id) {
 extern RC updateRecord(RM_TableData *rel, Record *record) {
 
     cachedRecordManager->pnt = 0;
-    cachedRecordManager->record = record;
+    cachedRecordManager->recd = record;
     cachedRecordManager->rcmngr = rel->mgmtData;
     pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
-            cachedRecordManager->record->id.page);
+            cachedRecordManager->recd->id.page);
     if ((cachedRecordManager->pnt = getRecordSize(rel->schema)) > 0) {}
     cachedRecordManager->rcd = cachedRecordManager->rcmngr->pg_hndl.data +
-                               (cachedRecordManager->record->id.slot * cachedRecordManager->pnt);
+                               (cachedRecordManager->recd->id.slot * cachedRecordManager->pnt);
     *(cachedRecordManager->rcd) = '+';
-    memcpy(++(cachedRecordManager->rcd), 1 + cachedRecordManager->record->data, cachedRecordManager->pnt - 1);
+    memcpy(++(cachedRecordManager->rcd), 1 + cachedRecordManager->recd->data, cachedRecordManager->pnt - 1);
 
     return RC_OK;
 }
@@ -266,34 +266,34 @@ extern RC getRecord(RM_TableData *rel, RID id, Record *record) {
 
 //DONE
 extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
-    cachedRecordManager->scan = scan;
-    cachedRecordManager->rel = rel;
+    cachedRecordManager->scn = scan;
+    cachedRecordManager->tab = rel;
     RcMngr *rcmgr = calloc(PAGE_SIZE, SIZE_T_RCMNGR);
-    cachedRecordManager->schema = rcmgr;
-    openTable(cachedRecordManager->rel, "st");
-    cachedRecordManager->scan->mgmtData = cachedRecordManager->schema;
+    cachedRecordManager->shm = rcmgr;
+    openTable(cachedRecordManager->tab, "st");
+    cachedRecordManager->scn->mgmtData = cachedRecordManager->shm;
 
-    ((RcMngr *) cachedRecordManager->rel->mgmtData)->rec_ID.slot = 0;
-    ((RcMngr *) cachedRecordManager->rel->mgmtData)->t_count = 15;
-    cachedRecordManager->scan->rel = cachedRecordManager->rel;
-    ((RcMngr *) cachedRecordManager->rel->mgmtData)->rec_ID.page = 1;
+    ((RcMngr *) cachedRecordManager->tab->mgmtData)->rec_ID.slot = 0;
+    ((RcMngr *) cachedRecordManager->tab->mgmtData)->t_count = 15;
+    cachedRecordManager->scn->rel = cachedRecordManager->tab;
+    ((RcMngr *) cachedRecordManager->tab->mgmtData)->rec_ID.page = 1;
     rcmgr->cond = cond;
-    ((RcMngr *) cachedRecordManager->rel->mgmtData)->scn_count = 0;
+    ((RcMngr *) cachedRecordManager->tab->mgmtData)->scn_count = 0;
     return RC_OK;
 }
 
 //DONE
 extern RC next(RM_ScanHandle *scan, Record *record) {
     cachedRecordManager->rcmngrS = (*scan).mgmtData;
-    cachedRecordManager->newschema = (*scan).rel->schema;
+    cachedRecordManager->shmN = (*scan).rel->schema;
     cachedRecordManager->val = malloc(SIZE_T_VALUE);
     cachedRecordManager->pnt = cachedRecordManager->rcmngrS->scn_count;
     cachedRecordManager->rcmngrTb = (*scan).rel->mgmtData;
-    cachedRecordManager->record = record;
+    cachedRecordManager->recd = record;
 
 
     while (cachedRecordManager->rcmngrS->scn_count <= cachedRecordManager->rcmngrTb->t_count) {
-        if (++cachedRecordManager->rcmngrS->rec_ID.slot >= (PAGE_SIZE / getRecordSize(cachedRecordManager->newschema))) {
+        if (++cachedRecordManager->rcmngrS->rec_ID.slot >= (PAGE_SIZE / getRecordSize(cachedRecordManager->shmN))) {
             ++cachedRecordManager->rcmngrS->rec_ID.page;
             cachedRecordManager->rcmngrS->rec_ID.slot = 0;
         }
@@ -306,17 +306,17 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
             cachedRecordManager->rcmngrS->rec_ID.page = 1;
         }
         cachedRecordManager->rcmngrS->pg_hndl.data += (cachedRecordManager->rcmngrS->rec_ID.slot *
-                                                         getRecordSize(cachedRecordManager->newschema));
-        cachedRecordManager->record->id.page = cachedRecordManager->rcmngrS->rec_ID.page;
-        cachedRecordManager->rcd = (*cachedRecordManager->record).data;
+                                                         getRecordSize(cachedRecordManager->shmN));
+        cachedRecordManager->recd->id.page = cachedRecordManager->rcmngrS->rec_ID.page;
+        cachedRecordManager->rcd = (*cachedRecordManager->recd).data;
         *cachedRecordManager->rcd = '-';
-        cachedRecordManager->record->id.slot = cachedRecordManager->rcmngrS->rec_ID.slot;
+        cachedRecordManager->recd->id.slot = cachedRecordManager->rcmngrS->rec_ID.slot;
         memcpy(++cachedRecordManager->rcd, (*cachedRecordManager->rcmngrS).pg_hndl.data + 1,
-               getRecordSize(cachedRecordManager->newschema) - 1);
+               getRecordSize(cachedRecordManager->shmN) - 1);
 
         cachedRecordManager->pnt++;
         (*cachedRecordManager->rcmngrS).scn_count++;
-        evalExpr(cachedRecordManager->record, cachedRecordManager->newschema, cachedRecordManager->rcmngrS->cond,
+        evalExpr(cachedRecordManager->recd, cachedRecordManager->shmN, cachedRecordManager->rcmngrS->cond,
                  &cachedRecordManager->val);
         if (cachedRecordManager->val->v.boolV == TRUE) {
             unpinPage(&cachedRecordManager->rcmngrTb->buff_pool, &cachedRecordManager->rcmngrS->pg_hndl);
@@ -332,10 +332,10 @@ extern RC closeScan(RM_ScanHandle *hand) {
 
 //DONE
 extern int getRecordSize(Schema *schema) {
-    cachedRecordManager->schema = schema;
+    cachedRecordManager->shm = schema;
     int size = 0;
-    for (int i = 0; i < cachedRecordManager->schema->numAttr; i++, size += dTypeLength(
-            cachedRecordManager->schema->dataTypes[i], cachedRecordManager->schema->typeLength[i])) {
+    for (int i = 0; i < cachedRecordManager->shm->numAttr; i++, size += dTypeLength(
+            cachedRecordManager->shm->dataTypes[i], cachedRecordManager->shm->typeLength[i])) {
     }
     return size;
 }
@@ -357,19 +357,19 @@ createSchema(int nt, char **an, DataType *dt, int *tl, int keySize, int *keys) {
 
 //DONE
 extern RC freeSchema(Schema *schema) {
-    return NULL == schema ? RC_OK : makeSpace(cachedRecordManager->schema);
+    return NULL == schema ? RC_OK : makeSpace(cachedRecordManager->shm);
 }
 
 //DONE
 extern RC createRecord(Record **record, Schema *schema) {
 
-    cachedRecordManager->record = malloc(SIZE_T_RECORD);
-    *record = cachedRecordManager->record;
-    cachedRecordManager->record->data = malloc(getRecordSize(schema));
-    cachedRecordManager->record->id.page = cachedRecordManager->record->id.slot = -1;
-    if (cachedRecordManager->record != NULL) {
-        char *crd = cachedRecordManager->record->data;
-        *cachedRecordManager->record->data = '-';
+    cachedRecordManager->recd = malloc(SIZE_T_RECORD);
+    *record = cachedRecordManager->recd;
+    cachedRecordManager->recd->data = malloc(getRecordSize(schema));
+    cachedRecordManager->recd->id.page = cachedRecordManager->recd->id.slot = -1;
+    if (cachedRecordManager->recd != NULL) {
+        char *crd = cachedRecordManager->recd->data;
+        *cachedRecordManager->recd->data = '-';
         *(++crd) = '\0';
     }
     return RC_OK;
@@ -379,14 +379,14 @@ extern RC createRecord(Record **record, Schema *schema) {
 RC oftS(Schema *schema, int atn, int *ofS) {
     cachedRecordManager->pnt = 0;
     *ofS = 1;
-    cachedRecordManager->schema = schema;
+    cachedRecordManager->shm = schema;
     while (cachedRecordManager->pnt < atn) {
         *ofS +=
-                cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] == DT_STRING
-                ? cachedRecordManager->schema->typeLength[cachedRecordManager->pnt] : (
-                        cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] ==
+                cachedRecordManager->shm->dataTypes[cachedRecordManager->pnt] == DT_STRING
+                ? cachedRecordManager->shm->typeLength[cachedRecordManager->pnt] : (
+                        cachedRecordManager->shm->dataTypes[cachedRecordManager->pnt] ==
                         DT_INT ? SIZE_T_INT :
-                        (cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt] ==
+                        (cachedRecordManager->shm->dataTypes[cachedRecordManager->pnt] ==
                          DT_FLOAT ? SIZE_T_FLOAT :
                          SIZE_T_BOOLEAN));
         cachedRecordManager->pnt++;
@@ -403,21 +403,21 @@ extern RC freeRecord(Record *record) {
 extern RC getAttr(Record *record, Schema *schema, int atn, Value **vl) {
 
     auto av;
-    cachedRecordManager->schema = schema;
+    cachedRecordManager->shm = schema;
 //    int ofS;
-    oftS(cachedRecordManager->schema, atn, &(cachedRecordManager->ofS));
+    oftS(cachedRecordManager->shm, atn, &(cachedRecordManager->ofS));
     memcpy(&av, record->data + cachedRecordManager->ofS,
-           dTypeLength(cachedRecordManager->schema->dataTypes[atn], cachedRecordManager->schema->typeLength[atn]));
+           dTypeLength(cachedRecordManager->shm->dataTypes[atn], cachedRecordManager->shm->typeLength[atn]));
 
     if (1 == atn) {
-        cachedRecordManager->schema->dataTypes[atn] = 1;
+        cachedRecordManager->shm->dataTypes[atn] = 1;
     }
-    if (cachedRecordManager->schema->dataTypes[atn] == DT_STRING) {
+    if (cachedRecordManager->shm->dataTypes[atn] == DT_STRING) {
         MAKE_STRING_VALUE((*vl), record->data + cachedRecordManager->ofS);
         (*vl)->v.stringV[strlen(record->data + cachedRecordManager->ofS) - 1] = '\0';
         return RC_OK;
     }
-    MAKE_VALUE((*vl), cachedRecordManager->schema->dataTypes[atn], av);
+    MAKE_VALUE((*vl), cachedRecordManager->shm->dataTypes[atn], av);
     return RC_OK;
 }
 
