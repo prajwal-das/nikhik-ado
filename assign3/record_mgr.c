@@ -53,24 +53,16 @@ RC makeSpace(void *var) {
     return RC_OK;
 }
 
-// new
-int findFreeSlot(char *data, int recordSize) {
-    int cntr = 0;
-    int slot = -1;
-    bool flg = FALSE;
-    do {
-
-        for (; cntr < PAGE_SIZE / recordSize; cntr++) {
-            int indx = cntr * recordSize;
-            flg = data[indx] == '+' ? flg : TRUE;
-            slot = data[indx] == '+' ? -1 : cntr;
-            if (slot > -1 && flg)
-                return slot;
-        }
-        break;
-    } while (recordSize > 0);
-
-    return slot;
+// new DONE
+int availSpot(char *data, int recordSize) {
+    cachedRecordManager->pnt = 0;
+    for (int iterator = cachedRecordManager->pnt * recordSize; cachedRecordManager->pnt < PAGE_SIZE /
+                                                                                      recordSize; cachedRecordManager->pnt++, iterator = cachedRecordManager->pnt *
+                                                                                                                                     recordSize) {
+        if (data[iterator] != '+')
+            return cachedRecordManager->pnt;
+    }
+    return -1;
 }
 
 Schema *createNewSchema() {
@@ -200,12 +192,12 @@ extern RC insertRecord(RM_TableData *rel, Record *record) {
     pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
             cachedRecordManager->rid->page);
 
-    cachedRecordManager->rid->slot = findFreeSlot(cachedRecordManager->rcmngr->pg_hndl.data, cachedRecordManager->size);
+    cachedRecordManager->rid->slot = availSpot(cachedRecordManager->rcmngr->pg_hndl.data, cachedRecordManager->size);
 
     while (cachedRecordManager->rid->slot == -1) {
         pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
                 ++cachedRecordManager->rid->page);
-        cachedRecordManager->rid->slot = findFreeSlot(cachedRecordManager->rcmngr->pg_hndl.data,
+        cachedRecordManager->rid->slot = availSpot(cachedRecordManager->rcmngr->pg_hndl.data,
                                                       cachedRecordManager->size);
     }
 
