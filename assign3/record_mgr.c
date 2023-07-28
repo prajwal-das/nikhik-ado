@@ -14,7 +14,9 @@ typedef struct CacheRecordManager {
     char *rcd;
     Schema *schema;
     int ofS;
+    int size;
     RID id;
+    RID *rid;
     Record *record
 } CacheRecordManager;
 
@@ -67,6 +69,7 @@ int findFreeSlot(char *data, int recordSize) {
     return slot;
 }
 
+//DONE
 void setup() {
     initStorageManager();
     cachedRecordManager = calloc(PAGE_SIZE, SIZE_T_CACHED_RECORD_MANAGER);
@@ -203,46 +206,32 @@ extern int getNumTuples(RM_TableData *rel) {
     return NULL == rel || NULL == rel->mgmtData ? 0 : cachedRecordManager->rcmngr->t_count;
 }
 
-
+//DONE
 extern RC insertRecord(RM_TableData *rel, Record *record) {
     cachedRecordManager->rcmngr = rel->mgmtData;
-    RID *r_ID = &record->id;
+    cachedRecordManager->record = record;
+    cachedRecordManager->rid = &cachedRecordManager->record->id;
+    cachedRecordManager->size = getRecordSize(rel->schema);
+    cachedRecordManager->rid->page = cachedRecordManager->rcmngr->freePg;
+    pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
+            cachedRecordManager->rid->page);
 
-    char *d, *SLOC;
-    int rec_size = 0;
-    while (rec_size == 0) {
+    cachedRecordManager->rid->slot = findFreeSlot(cachedRecordManager->rcmngr->pg_hndl.data, cachedRecordManager->size);
 
-        rec_size = getRecordSize(rel->schema);
-        r_ID->page = cachedRecordManager->rcmngr->freePg;
-        pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), r_ID->page);
+    while (cachedRecordManager->rid->slot == -1) {
+        pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
+                ++cachedRecordManager->rid->page);
+        cachedRecordManager->rid->slot = findFreeSlot(cachedRecordManager->rcmngr->pg_hndl.data,
+                                                      cachedRecordManager->size);
     }
-    d = cachedRecordManager->rcmngr->pg_hndl.data;
-    r_ID->slot = findFreeSlot(d, rec_size);
-    while ((r_ID->slot < 0) && (r_ID->slot == -1)) {
-        unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-        int pageNum = r_ID->page + 1;
-        r_ID->page = pageNum;
-        pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), pageNum);
-        d = cachedRecordManager->rcmngr->pg_hndl.data;
-        r_ID->slot = findFreeSlot(d, rec_size);
-    }
-    if (d != NULL) {
-        SLOC = d;
-        markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-    }
-    do {
 
-        SLOC = SLOC + (r_ID->slot * rec_size);
-        *SLOC = '+';
-        memcpy(++SLOC, (*record).data + 1, rec_size - 1);
+    markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
 
-    } while (1 != 1);
+    cachedRecordManager->rcd =
+            cachedRecordManager->rcmngr->pg_hndl.data + (cachedRecordManager->rid->slot * cachedRecordManager->size);
+    *(cachedRecordManager->rcd) = '+';
+    memcpy(++(cachedRecordManager->rcd), cachedRecordManager->record->data + 1, cachedRecordManager->size - 1);
 
-    if (SLOC != d) {
-        unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-        cachedRecordManager->rcmngr->t_count++;
-    }
-    pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), 0);
     return RC_OK;
 }
 
