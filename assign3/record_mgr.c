@@ -318,6 +318,9 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
         (*cachedRecordManager->rcmngrS).scn_count++;
         evalExpr(cachedRecordManager->record, cachedRecordManager->newschema, cachedRecordManager->rcmngrS->cond,
                  &cachedRecordManager->val);
+        if (cachedRecordManager->val->v.boolV == TRUE) {
+            unpinPage(&cachedRecordManager->rcmngrTb->buff_pool, &cachedRecordManager->rcmngrS->pg_hndl);
+        }
     }
     return RC_OK;
 }
