@@ -309,31 +309,18 @@ extern RC updateRecord(RM_TableData *rel, Record *record) {
     return res;
 }
 
-
+//DONE
 extern RC getRecord(RM_TableData *rel, RID id, Record *record) {
 
-    bool flg = TRUE;
-    int rec_size = rec_size = getRecordSize(rel->schema);
-    while (flg) {
-
-        cachedRecordManager->rcmngr = rel->mgmtData;
-        pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), id.page);
-        char *d = cachedRecordManager->rcmngr->pg_hndl.data;
-        d = d + (rec_size * id.slot);
-        while (!(*d != '+')) {
-
-            record->id = id;
-            char *data = record->data;
-            memcpy(++data, d + 1, rec_size - 1);
-            unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-            return RC_OK;
-            break;
-        }
-        return RC_RM_NO_TUPLE_WITH_GIVEN_RID;
-        flg = FALSE;
+    cachedRecordManager->rcmngr = rel->mgmtData;
+    char *rcd = record->data;
+    pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), id.page);
+    if (*(cachedRecordManager->rcmngr->pg_hndl.data + (getRecordSize(rel->schema) * id.slot)) == '+') {
+        record->id = id;
+        memcpy(++rcd, cachedRecordManager->rcmngr->pg_hndl.data + (getRecordSize(rel->schema) * id.slot) + 1,
+               getRecordSize(rel->schema) - 1);
+        return RC_OK;
     }
-
-    return RC_ERROR;
 }
 
 //DONE
