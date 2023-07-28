@@ -8,6 +8,8 @@
 
 typedef struct CacheRecordManager {
     RcMngr *rcmngr;
+    RM_TableData *rel;
+    RM_ScanHandle *scan;
     int pnt;
     Schema *schema;
     int ofS;
@@ -334,34 +336,22 @@ extern RC getRecord(RM_TableData *rel, RID id, Record *record) {
     return RC_ERROR;
 }
 
-
+//DONE
 extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
-    int ATR_SIZE = 15;
-    while (cond != NULL) {
+    cachedRecordManager->scan = scan;
+    cachedRecordManager->rel = rel;
+    RcMngr *rcmgr = calloc(PAGE_SIZE, SIZE_T_RCMNGR);
+    cachedRecordManager->schema = rcmgr;
+    openTable(cachedRecordManager->rel, "st");
+    cachedRecordManager->scan->mgmtData = cachedRecordManager->schema;
 
-        RcMngr *scn_mgr;
-        RcMngr *tbl_mgr;
-        int zero = 0;
-        if (openTable(rel, "ScanTable") == RC_OK) {
-            if (SIZE_T_RCMNGR > 0) {
-                scn_mgr = (RcMngr *) malloc(SIZE_T_RCMNGR);
-                scan->mgmtData = scn_mgr;
-
-                scn_mgr->cond = cond;
-                scn_mgr->rec_ID.slot = zero;
-            }
-            scn_mgr->rec_ID.page = 1;
-            scn_mgr->scn_count = zero;
-            if (scn_mgr != NULL) {
-                tbl_mgr = (*rel).mgmtData;
-                tbl_mgr->t_count = ATR_SIZE;
-            }
-            scan->rel = rel;
-        }
-        return RC_OK;
-        break;
-    }
-    return RC_SCAN_CONDITION_NOT_FOUND;
+    ((RcMngr *) cachedRecordManager->rel->mgmtData)->rec_ID.slot = 0;
+    ((RcMngr *) cachedRecordManager->rel->mgmtData)->t_count = 15;
+    cachedRecordManager->scan->rel = cachedRecordManager->rel;
+    ((RcMngr *) cachedRecordManager->rel->mgmtData)->rec_ID.page = 1;
+    rcmgr->cond = cond;
+    ((RcMngr *) cachedRecordManager->rel->mgmtData)->scn_count = 0;
+    return RC_OK;
 }
 
 extern RC next(RM_ScanHandle *scan, Record *record) {
@@ -459,23 +449,9 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
     return RC_RM_NO_MORE_TUPLES;
 }
 
-extern RC closeScan(RM_ScanHandle *scan) {
-    RcMngr *scnMgr = scan->mgmtData != NULL ? scan->mgmtData : NULL;
-    cachedRecordManager->rcmngr = (*scan).rel->mgmtData;
-    Return_code = RC_OK;
-    int zero = 0;
-
-    while ((scnMgr->scn_count != 0) && (!(scnMgr->scn_count < 0))) {
-        if (unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &scnMgr->pg_hndl) == RC_OK) {
-            scnMgr->scn_count = zero;
-            scnMgr->rec_ID.page = 1;
-            scnMgr->rec_ID.slot = zero;
-        }
-        scan->mgmtData = NULL;
-        free(scan->mgmtData);
-        break;
-    }
-    return Return_code;
+//DONE
+extern RC closeScan(RM_ScanHandle *hand) {
+    return hand != NULL ? RC_OK : makeSpace(hand->mgmtData);
 }
 
 //DONE
