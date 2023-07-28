@@ -65,6 +65,7 @@ int availSpot(char *data, int recordSize) {
     return -1;
 }
 
+//DONE
 Schema *createNewSchema() {
 
     cachedRecordManager->newschema = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
