@@ -18,8 +18,10 @@ typedef struct CacheRecordManager {
     RID id;
     RID *rid;
     SM_PageHandle pg_hndl;
+    SM_FileHandle fh;
     Schema *newschema;
-    Record *record
+    char page[PAGE_SIZE];
+    Record *record;
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
@@ -104,48 +106,41 @@ extern RC shutdownRecordManager() {
     return true ? RC_OK : makeSpace(cachedRecordManager);
 }
 
-extern RC createTable(char *name, Schema *schema) {
+//DONE
+extern RC createTable(char *tabName, Schema *schema) {
 
-    int ATR_SIZE = 15;
-    char d[PAGE_SIZE];
-    char *hpg = d;
-    SM_FileHandle fh;
-    initBufferPool(&(cachedRecordManager->rcmngr->buff_pool), name, 100, RS_LRU, NULL);
+    cachedRecordManager->rcd = cachedRecordManager->page;
+    cachedRecordManager->schema = schema;
+    initBufferPool(&(cachedRecordManager->rcmngr->buff_pool), tabName, 100, RS_FIFO, NULL);
 
-    *(int *) hpg = 0;
-    hpg = hpg + SIZE_T_INT;
-    *(int *) hpg = 1;
-    hpg = hpg + SIZE_T_INT;
-    if (PAGE_SIZE > 0) {
-        *(int *) hpg = (*schema).numAttr;
-        hpg = hpg + SIZE_T_INT;
-        *(int *) hpg = (*schema).keySize;
+    { *cachedRecordManager->rcd = 0; }
+    { cachedRecordManager->rcd += +SIZE_T_INT; }
+    { *cachedRecordManager->rcd = 1; }
+    { cachedRecordManager->rcd += SIZE_T_INT; }
+
+    *cachedRecordManager->rcd = (*cachedRecordManager->schema).numAttr;
+    cachedRecordManager->rcd = cachedRecordManager->rcd + SIZE_T_INT;
+
+
+    for (cachedRecordManager->pnt = 0;
+         cachedRecordManager->pnt < cachedRecordManager->schema->numAttr;
+         cachedRecordManager->pnt++) {
+
+        { strncpy(cachedRecordManager->rcd, cachedRecordManager->schema->attrNames[cachedRecordManager->pnt], 15); }
+        { cachedRecordManager->rcd += 15; }
+        { *cachedRecordManager->rcd = cachedRecordManager->schema->dataTypes[cachedRecordManager->pnt]; }
+        { cachedRecordManager->rcd += SIZE_T_INT; }
+        { *cachedRecordManager->rcd = cachedRecordManager->schema->typeLength[cachedRecordManager->pnt]; }
     }
-    hpg = hpg + SIZE_T_INT;
 
-    int cntr = 0;
-    do {
-        strncpy(hpg, (*schema).attrNames[cntr], ATR_SIZE);
-        hpg = hpg + ATR_SIZE;
-        *(int *) hpg = (int) (*schema).dataTypes[cntr];
-        if (TRUE) {
-            hpg = hpg + SIZE_T_INT;
-            *(int *) hpg = (int) (*schema).typeLength[cntr];
-        }
-        cntr++;
-        hpg = hpg + SIZE_T_INT;
-
-    } while (cntr < schema->numAttr);
-
-    if (createPageFile(name) == RC_OK)
-        openPageFile(name, &fh);
-
-    if (writeBlock(0, &fh, d) == RC_OK)
-        closePageFile(&fh);
+    if (createPageFile(tabName) != RC_OK) {}
+    if (openPageFile(tabName, &cachedRecordManager->fh) != RC_OK) {}
+    if (writeBlock(0, &cachedRecordManager->fh, cachedRecordManager->page) != RC_OK) {}
 
     return RC_OK;
 }
 
+//DONE
 extern RC openTable(RM_TableData *rel, char *name) {
     cachedRecordManager->rel = rel;
     cachedRecordManager->rel->mgmtData = cachedRecordManager->rcmngr;
