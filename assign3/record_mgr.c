@@ -17,6 +17,8 @@ typedef struct CacheRecordManager {
     int size;
     RID id;
     RID *rid;
+    SM_PageHandle pg_hndl;
+    Schema *newschema;
     Record *record
 } CacheRecordManager;
 
@@ -67,6 +69,20 @@ int findFreeSlot(char *data, int recordSize) {
     } while (recordSize > 0);
 
     return slot;
+}
+
+Schema *createNewSchema() {
+
+    cachedRecordManager->newschema = calloc(PAGE_SIZE, SIZE_T_SCHEMA);
+    cachedRecordManager->newschema->dataTypes = calloc(PAGE_SIZE, SIZE_T_DATATYPE * cachedRecordManager->pnt);
+    cachedRecordManager->newschema->attrNames = calloc(PAGE_SIZE, SIZE_T_CHAR * cachedRecordManager->pnt);
+    cachedRecordManager->newschema->typeLength = calloc(PAGE_SIZE, SIZE_T_INT * cachedRecordManager->pnt);
+    cachedRecordManager->newschema->numAttr = cachedRecordManager->pnt;
+
+
+    while (cachedRecordManager->pnt-- >= 0)
+        cachedRecordManager->newschema->attrNames[cachedRecordManager->pnt] = (char *) malloc(15);
+    return cachedRecordManager->newschema;
 }
 
 //DONE
@@ -131,60 +147,33 @@ extern RC createTable(char *name, Schema *schema) {
 }
 
 extern RC openTable(RM_TableData *rel, char *name) {
-    int ATR_SIZE = 15;
-    if (TRUE) {
+    cachedRecordManager->rel = rel;
+    cachedRecordManager->rel->mgmtData = cachedRecordManager->rcmngr;
+    cachedRecordManager->rel->name = name;
+    pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), 0);
+    cachedRecordManager->pg_hndl = (char *) cachedRecordManager->rcmngr->pg_hndl.data;
 
-        SM_PageHandle pg_hndl;
-        int a_count;
-        rel->name = name;
-        int cnt = 0;
-        rel->mgmtData = cachedRecordManager->rcmngr;
-        while (SIZE_T_INT > 0) {
-            pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), 0);
-            pg_hndl = (char *) cachedRecordManager->rcmngr->pg_hndl.data;
-            cachedRecordManager->rcmngr->t_count = *(int *) pg_hndl;
-            break;
-        }
-        pg_hndl = pg_hndl + SIZE_T_INT;
+    cachedRecordManager->rcmngr->t_count = *(cachedRecordManager->rcmngr->pg_hndl.data);
+    cachedRecordManager->pg_hndl += SIZE_T_INT;
 
-        if (SIZE_T_INT != 0) {
-            cachedRecordManager->rcmngr->freePg = *(int *) pg_hndl;
-            pg_hndl = pg_hndl + SIZE_T_INT;
-        }
-        a_count = *(int *) pg_hndl;
-        pg_hndl = pg_hndl + SIZE_T_INT;
-        Schema *sch = (Schema *) malloc(SIZE_T_SCHEMA);
-        while (SIZE_T_SCHEMA != 0) {
-            sch->dataTypes = (DataType *) malloc(SIZE_T_DATATYPE * a_count);
-            sch->attrNames = (char **) malloc(SIZE_T_CHAR * a_count);
-            sch->numAttr = a_count;
-            break;
-        }
-        sch->typeLength = (int *) malloc(SIZE_T_INT * a_count);
-        for (; cnt < a_count; cnt++)
-            sch->attrNames[cnt] = (char *) malloc(ATR_SIZE);
+    cachedRecordManager->rcmngr->freePg = *cachedRecordManager->pg_hndl;
+    cachedRecordManager->pg_hndl += SIZE_T_INT;
 
-        cnt = 0;
-        do {
-            strncpy(sch->attrNames[cnt], pg_hndl, ATR_SIZE);
-            pg_hndl = pg_hndl + ATR_SIZE;
-            if (cnt < sch->numAttr) {
-                sch->dataTypes[cnt] = *(int *) pg_hndl;
-                pg_hndl = SIZE_T_INT + pg_hndl;
-                sch->typeLength[cnt] = *(int *) pg_hndl;
-            } else
-                break;
-            pg_hndl = SIZE_T_INT + pg_hndl;
-            cnt++;
+    cachedRecordManager->pnt = *cachedRecordManager->pg_hndl;
 
-        } while (cnt < sch->numAttr);
+    createNewSchema();
 
-        rel->schema = sch;
-        if (unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl)) == RC_OK)
-            forcePage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-        return RC_OK;
+    for (cachedRecordManager->pnt = 0;
+         cachedRecordManager->pnt < cachedRecordManager->newschema->numAttr; cachedRecordManager->pnt++) {
+        strncpy(cachedRecordManager->newschema->attrNames[cachedRecordManager->pnt], cachedRecordManager->pg_hndl, 15);
+        cachedRecordManager->pg_hndl += 15;
+        cachedRecordManager->newschema->dataTypes[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
+        cachedRecordManager->pg_hndl += SIZE_T_INT;
+        cachedRecordManager->newschema->typeLength[cachedRecordManager->pnt] = *cachedRecordManager->pg_hndl;
     }
-    return RC_PINNED_PAGES_IN_BUFFER;
+
+    cachedRecordManager->rel->schema = cachedRecordManager->newschema;
+    return RC_OK;
 }
 
 //DONE
