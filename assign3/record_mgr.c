@@ -11,6 +11,7 @@ typedef struct CacheRecordManager {
     RM_TableData *rel;
     RM_ScanHandle *scan;
     int pnt;
+    char *rcd;
     Schema *schema;
     int ofS;
     Record *record
@@ -280,44 +281,27 @@ extern RC deleteRecord(RM_TableData *rel, RID id) {
 
 extern RC updateRecord(RM_TableData *rel, Record *record) {
 
-    char *d;
-    int rel_size = 0;
-    char plus = '+';
-    if (rel->mgmtData == NULL)
-        return RC_ERROR;
-    else {
-        cachedRecordManager->rcmngr = rel->mgmtData;
-        pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), record->id.page);
-    }
-    if (getRecordSize(rel->schema) > 0) {
-        rel_size = getRecordSize(rel->schema);
-    }
-    RID id = (*record).id;
-    d = cachedRecordManager->rcmngr->pg_hndl.data;
+    cachedRecordManager->pnt = 0;
+    cachedRecordManager->record = record;
+    cachedRecordManager->rcmngr = rel->mgmtData;
+    pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), cachedRecordManager->record->id.page);
+    if ((cachedRecordManager->pnt = getRecordSize(rel->schema)) > 0) {}
+    cachedRecordManager->rcd = cachedRecordManager->rcmngr->pg_hndl.data + (cachedRecordManager->record->id.slot * cachedRecordManager->pnt);
+    *(cachedRecordManager->rcd) = '+';
+    memcpy(++(cachedRecordManager->rcd), 1 + cachedRecordManager->record->data, cachedRecordManager->pnt - 1);
 
-    while (d != NULL) {
-
-        d = d + (id.slot * rel_size);
-        *d = plus;
-        break;
-    }
-    memcpy(++d, (*record).data + 1, rel_size - 1);
-    int res = markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-    if (res == RC_OK)
-        unpinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
-
-    return res;
+    return RC_OK;
 }
 
 //DONE
 extern RC getRecord(RM_TableData *rel, RID id, Record *record) {
 
     cachedRecordManager->rcmngr = rel->mgmtData;
-    char *rcd = record->data;
+    cachedRecordManager->rcd = record->data;
     pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl), id.page);
     if (*(cachedRecordManager->rcmngr->pg_hndl.data + (getRecordSize(rel->schema) * id.slot)) == '+') {
         record->id = id;
-        memcpy(++rcd, cachedRecordManager->rcmngr->pg_hndl.data + (getRecordSize(rel->schema) * id.slot) + 1,
+        memcpy(++(cachedRecordManager->rcd), cachedRecordManager->rcmngr->pg_hndl.data + (getRecordSize(rel->schema) * id.slot) + 1,
                getRecordSize(rel->schema) - 1);
         return RC_OK;
     }
