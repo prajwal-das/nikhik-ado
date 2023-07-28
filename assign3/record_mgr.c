@@ -22,6 +22,9 @@ typedef struct CacheRecordManager {
     Schema *newschema;
     char page[PAGE_SIZE];
     Record *record;
+    RcMngr *rcmngrS;
+    RcMngr *rcmngrTb;
+    Value *val;
 } CacheRecordManager;
 
 CacheRecordManager *cachedRecordManager;
@@ -46,8 +49,6 @@ size_t dTypeLength(DataType dataType, int s_size) {
     return size[dataType];
 }
 
-RC Return_code;
-
 RC makeSpace(void *var) {
     free(var);
     return RC_OK;
@@ -57,8 +58,9 @@ RC makeSpace(void *var) {
 int availSpot(char *data, int recordSize) {
     cachedRecordManager->pnt = 0;
     for (int iterator = cachedRecordManager->pnt * recordSize; cachedRecordManager->pnt < PAGE_SIZE /
-                                                                                      recordSize; cachedRecordManager->pnt++, iterator = cachedRecordManager->pnt *
-                                                                                                                                     recordSize) {
+                                                                                          recordSize; cachedRecordManager->pnt++, iterator =
+                                                                                                                                          cachedRecordManager->pnt *
+                                                                                                                                          recordSize) {
         if (data[iterator] != '+')
             return cachedRecordManager->pnt;
     }
@@ -199,7 +201,7 @@ extern RC insertRecord(RM_TableData *rel, Record *record) {
         pinPage(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl),
                 ++cachedRecordManager->rid->page);
         cachedRecordManager->rid->slot = availSpot(cachedRecordManager->rcmngr->pg_hndl.data,
-                                                      cachedRecordManager->size);
+                                                   cachedRecordManager->size);
     }
 
     markDirty(&(cachedRecordManager->rcmngr->buff_pool), &(cachedRecordManager->rcmngr->pg_hndl));
@@ -280,99 +282,44 @@ extern RC startScan(RM_TableData *rel, RM_ScanHandle *scan, Expr *cond) {
     return RC_OK;
 }
 
+//DONE
 extern RC next(RM_ScanHandle *scan, Record *record) {
-    Return_code = RC_OK;
-    if ((*scan).rel->mgmtData != NULL) {
-        RcMngr *scnMgr = (*scan).mgmtData;
-        if (scnMgr->cond != NULL) {
+    cachedRecordManager->rcmngrS = (*scan).mgmtData;
+    cachedRecordManager->newschema = (*scan).rel->schema;
+    cachedRecordManager->val = malloc(SIZE_T_VALUE);
+    cachedRecordManager->pnt = cachedRecordManager->rcmngrS->scn_count;
+    cachedRecordManager->rcmngrTb = (*scan).rel->mgmtData;
+    cachedRecordManager->record = record;
 
-            RcMngr *tableManager = (*scan).rel->mgmtData;
-            char *dt;
 
-            if ((*scan).rel->mgmtData != NULL) {
-
-                Schema *schema = (*scan).rel->schema;
-
-                if ((*scnMgr).cond == NULL)
-                    return RC_SCAN_CONDITION_NOT_FOUND;
-
-                Value *result = (Value *) malloc(SIZE_T_VALUE);
-
-                int tot_slots = PAGE_SIZE / getRecordSize(schema);
-                int sc_count = 0;
-                sc_count = (*scnMgr).scn_count;
-                int count_tp = (*tableManager).t_count;
-
-                if (count_tp != 0) {
-                    while (sc_count <= count_tp) {
-                        if (!(sc_count > 0)) {
-                            (*scnMgr).rec_ID.slot = 0;
-                            (*scnMgr).rec_ID.page = 1;
-                        } else {
-                            (*scnMgr).rec_ID.slot++;
-                            if ((*scnMgr).rec_ID.slot >= tot_slots) {
-                                if (sc_count > 0)
-                                    (*scnMgr).rec_ID.page++;
-                                (*scnMgr).rec_ID.slot = 0;
-                            }
-                        }
-                        int count = 1, count1 = 0;
-                        if (count == 1) {
-                            pinPage(&tableManager->buff_pool, &scnMgr->pg_hndl, (*scnMgr).rec_ID.page);
-                            count1 = 1;
-                        }
-
-                        if (count1 == 1) {
-                            dt = (*scnMgr).pg_hndl.data;
-                            if (true)
-                                dt = dt + ((*scnMgr).rec_ID.slot * getRecordSize(schema));
-                            (*record).id.slot = (*scnMgr).rec_ID.slot;
-                            if (true)
-                                (*record).id.page = (*scnMgr).rec_ID.page;
-                            char *dataPointer = (*record).data;
-                            *dataPointer = '-';
-                            memcpy(++dataPointer, dt + 1, getRecordSize(schema) - 1);
-                        }
-
-                        sc_count++;
-                        if (true)
-                            (*scnMgr).scn_count++;
-                        evalExpr(record, schema, (*scnMgr).cond, &result);
-                        if ((*result).v.boolV == TRUE) {
-                            if (true)
-                                unpinPage(&tableManager->buff_pool, &scnMgr->pg_hndl);
-                            return RC_OK;
-                        }
-                    }
-
-                    int count = 1, count1 = 0;
-                    unpinPage(&tableManager->buff_pool, &scnMgr->pg_hndl);
-                    if (count == 1) {
-                        scnMgr->rec_ID.page = 1;
-                        count1 = 1;
-                    }
-
-                    if (count1 == 1) {
-                        (*scnMgr).rec_ID.slot = 0;
-                    }
-
-                    if (count1 == 1) {
-                        (*scnMgr).scn_count = 0;
-                    }
-
-                    return RC_RM_NO_MORE_TUPLES;
-                } else {
-                    return RC_RM_NO_MORE_TUPLES;
-                }
-            }
-        } else {
-            return RC_SCAN_CONDITION_NOT_FOUND;
+    while (cachedRecordManager->rcmngrS->scn_count <= cachedRecordManager->rcmngrTb->t_count) {
+        if (++cachedRecordManager->rcmngrS->rec_ID.slot >= (PAGE_SIZE / getRecordSize(cachedRecordManager->newschema))) {
+            ++cachedRecordManager->rcmngrS->rec_ID.page;
+            cachedRecordManager->rcmngrS->rec_ID.slot = 0;
         }
-    } else {
-        return RC_SCAN_CONDITION_NOT_FOUND;
-    }
 
-    return RC_RM_NO_MORE_TUPLES;
+        pinPage(&cachedRecordManager->rcmngrTb->buff_pool, &(cachedRecordManager->rcmngrS)->pg_hndl,
+                (*cachedRecordManager->rcmngrS).rec_ID.page);
+
+        if (cachedRecordManager->rcmngrS->scn_count <= 0) {
+            cachedRecordManager->rcmngrS->rec_ID.slot = 0;
+            cachedRecordManager->rcmngrS->rec_ID.page = 1;
+        }
+        cachedRecordManager->rcmngrS->pg_hndl.data += (cachedRecordManager->rcmngrS->rec_ID.slot *
+                                                         getRecordSize(cachedRecordManager->newschema));
+        cachedRecordManager->record->id.page = cachedRecordManager->rcmngrS->rec_ID.page;
+        cachedRecordManager->rcd = (*cachedRecordManager->record).data;
+        *cachedRecordManager->rcd = '-';
+        cachedRecordManager->record->id.slot = cachedRecordManager->rcmngrS->rec_ID.slot;
+        memcpy(++cachedRecordManager->rcd, (*cachedRecordManager->rcmngrS).pg_hndl.data + 1,
+               getRecordSize(cachedRecordManager->newschema) - 1);
+
+        cachedRecordManager->pnt++;
+        (*cachedRecordManager->rcmngrS).scn_count++;
+        evalExpr(cachedRecordManager->record, cachedRecordManager->newschema, cachedRecordManager->rcmngrS->cond,
+                 &cachedRecordManager->val);
+    }
+    return RC_OK;
 }
 
 //DONE
