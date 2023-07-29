@@ -6,59 +6,57 @@
 #include "expr.h"
 #include "tables.h"
 
+void sb(Value *out) {
+    out->dt = DT_BOOL;
+}
+
+bool or(bool a, bool b) {
+    return a || b;
+}
+
+bool and(bool a, bool b) {
+    return a && b;
+}
+
+RC success = RC_OK;
 
 RC valueEquals(Value *st, Value *en, Value *out) {
     out->v.boolV = st->dt == DT_BOOL ?
-                      st->v.boolV == en->v.boolV : st->dt == DT_FLOAT ? st->v.floatV == en->v.floatV :
-                                                   st->dt == DT_INT ? st->v.intV == en->v.intV :
-                                                   strcmp(st->v.stringV, en->v.stringV) == 0;
+                   st->v.boolV == en->v.boolV : st->dt == DT_FLOAT ? st->v.floatV == en->v.floatV :
+                                                st->dt == DT_INT ? st->v.intV == en->v.intV :
+                                                strcmp(st->v.stringV, en->v.stringV) == 0;
 
-    return RC_OK;
+    return success;
 }
 
-RC
-valueSmaller(Value *st, Value *en, Value *out) {
-
-    out->dt = DT_BOOL;
-
+RC valueSmaller(Value *st, Value *en, Value *out) {
     out->v.boolV = st->dt == DT_BOOL ?
-                      st->v.boolV < en->v.boolV : st->dt == DT_FLOAT ? st->v.floatV < en->v.floatV :
-                                                   st->dt == DT_INT ? st->v.intV < en->v.intV :
-                                                   strcmp(st->v.stringV, en->v.stringV) < 0;
-
-    return RC_OK;
+                   st->v.boolV < en->v.boolV : st->dt == DT_FLOAT ? st->v.floatV < en->v.floatV :
+                                               st->dt == DT_INT ? st->v.intV < en->v.intV :
+                                               strcmp(st->v.stringV, en->v.stringV) < 0;
+    sb(out);
+    return success;
 }
 
-RC
-boolNot(Value *input, Value *out) {
-    if (input->dt != DT_BOOL)
-        THROW(RC_RM_BOOLEAN_EXPR_ARG_IS_NOT_BOOLEAN, "boolean NOT requires boolean input");
-    out->dt = DT_BOOL;
-    out->v.boolV = !(input->v.boolV);
-
-    return RC_OK;
+RC boolNot(Value *input, Value *out) {
+    out->v.boolV = !input->v.boolV;
+    sb(out);
+    return success;
 }
 
-RC
-boolAnd(Value *st, Value *en, Value *out) {
-    if (st->dt != DT_BOOL || en->dt != DT_BOOL)
-        THROW(RC_RM_BOOLEAN_EXPR_ARG_IS_NOT_BOOLEAN, "boolean AND requires boolean inputs");
-    out->v.boolV = (st->v.boolV && en->v.boolV);
-
-    return RC_OK;
+RC boolAnd(Value *st, Value *en, Value *out) {
+    sb(out);
+    out->v.boolV = and(st->v.boolV, en->v.boolV);
+    return success;
 }
 
-RC
-boolOr(Value *st, Value *en, Value *out) {
-    if (st->dt != DT_BOOL || en->dt != DT_BOOL)
-        THROW(RC_RM_BOOLEAN_EXPR_ARG_IS_NOT_BOOLEAN, "boolean OR requires boolean inputs");
-    out->v.boolV = (st->v.boolV || en->v.boolV);
-
-    return RC_OK;
+RC boolOr(Value *st, Value *en, Value *out) {
+    sb(out);
+    out->v.boolV = or(st->v.boolV, en->v.boolV);
+    return success;
 }
 
-RC
-evalExpr(Record *record, Schema *schema, Expr *expr, Value **out) {
+RC evalExpr(Record *record, Schema *schema, Expr *expr, Value **out) {
     Value *lIn;
     Value *rIn;
     MAKE_VALUE(*out, DT_INT, -1);
@@ -67,8 +65,6 @@ evalExpr(Record *record, Schema *schema, Expr *expr, Value **out) {
         case EXPR_OP: {
             Operator *op = expr->expr.op;
             bool twoArgs = (op->type != OP_BOOL_NOT);
-            //      lIn = (Value *) malloc(sizeof(Value));
-            //    rIn = (Value *) malloc(sizeof(Value));
 
             CHECK(evalExpr(record, schema, op->args[0], &lIn));
             if (twoArgs)
@@ -109,11 +105,10 @@ evalExpr(Record *record, Schema *schema, Expr *expr, Value **out) {
             break;
     }
 
-    return RC_OK;
+    return success;
 }
 
-RC
-freeExpr(Expr *expr) {
+RC freeExpr(Expr *expr) {
     switch (expr->type) {
         case EXPR_OP: {
             Operator *op = expr->expr.op;
@@ -135,15 +130,11 @@ freeExpr(Expr *expr) {
         case EXPR_ATTRREF:
             break;
     }
-    free(expr);
 
-    return RC_OK;
+    return success;
 }
 
-void
-freeVal(Value *val) {
-    if (val->dt == DT_STRING)
-        free(val->v.stringV);
+void freeVal(Value *val) {
     free(val);
 }
 
