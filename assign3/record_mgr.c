@@ -291,22 +291,23 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
     cachedRecordManager->rcmngrTb = (*scan).rel->mgmtData;
     cachedRecordManager->recd = record;
 
-
     while (cachedRecordManager->rcmngrS->scn_count <= cachedRecordManager->rcmngrTb->t_count) {
+
         if (++cachedRecordManager->rcmngrS->rec_ID.slot >= (PAGE_SIZE / getRecordSize(cachedRecordManager->shmN))) {
             ++cachedRecordManager->rcmngrS->rec_ID.page;
             cachedRecordManager->rcmngrS->rec_ID.slot = 0;
+        }
+        if (cachedRecordManager->rcmngrS->scn_count <= 0) {
+            cachedRecordManager->rcmngrS->rec_ID.slot = 0;
+            cachedRecordManager->rcmngrS->rec_ID.page = 1;
         }
 
         pinPage(&cachedRecordManager->rcmngrTb->buff_pool, &(cachedRecordManager->rcmngrS)->pg_hndl,
                 (*cachedRecordManager->rcmngrS).rec_ID.page);
 
-        if (cachedRecordManager->rcmngrS->scn_count <= 0) {
-            cachedRecordManager->rcmngrS->rec_ID.slot = 0;
-            cachedRecordManager->rcmngrS->rec_ID.page = 1;
-        }
+
         cachedRecordManager->rcmngrS->pg_hndl.data += (cachedRecordManager->rcmngrS->rec_ID.slot *
-                                                         getRecordSize(cachedRecordManager->shmN));
+                                                       getRecordSize(cachedRecordManager->shmN));
         cachedRecordManager->recd->id.page = cachedRecordManager->rcmngrS->rec_ID.page;
         cachedRecordManager->rcd = (*cachedRecordManager->recd).data;
         *cachedRecordManager->rcd = '-';
@@ -314,15 +315,18 @@ extern RC next(RM_ScanHandle *scan, Record *record) {
         memcpy(++cachedRecordManager->rcd, (*cachedRecordManager->rcmngrS).pg_hndl.data + 1,
                getRecordSize(cachedRecordManager->shmN) - 1);
 
+
         cachedRecordManager->pnt++;
         (*cachedRecordManager->rcmngrS).scn_count++;
-        evalExpr(cachedRecordManager->recd, cachedRecordManager->shmN, cachedRecordManager->rcmngrS->cond,
+        evalExpr(cachedRecordManager->recd, cachedRecordManager->shmN, (*(cachedRecordManager->rcmngrS)).cond,
                  &cachedRecordManager->val);
-        if (cachedRecordManager->val->v.boolV == TRUE) {
-            unpinPage(&cachedRecordManager->rcmngrTb->buff_pool, &cachedRecordManager->rcmngrS->pg_hndl);
+        if ((*cachedRecordManager->val).v.boolV == TRUE) {
+            unpinPage(&cachedRecordManager->rcmngrTb->buff_pool, &(cachedRecordManager->rcmngrS)->pg_hndl);
+            return RC_OK;
         }
     }
-    return RC_OK;
+
+    return RC_RM_NO_MORE_TUPLES;
 }
 
 //DONE
