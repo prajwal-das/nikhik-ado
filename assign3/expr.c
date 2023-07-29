@@ -25,7 +25,6 @@ RC valueEquals(Value *st, Value *en, Value *out) {
                    st->v.boolV == en->v.boolV : st->dt == DT_FLOAT ? st->v.floatV == en->v.floatV :
                                                 st->dt == DT_INT ? st->v.intV == en->v.intV :
                                                 strcmp(st->v.stringV, en->v.stringV) == 0;
-
     return success;
 }
 
@@ -56,81 +55,34 @@ RC boolOr(Value *st, Value *en, Value *out) {
     return success;
 }
 
-RC evalExpr(Record *record, Schema *schema, Expr *expr, Value **out) {
-    Value *lIn;
-    Value *rIn;
+RC evalExpr(Record *rcd, Schema *sch, Expr *prex, Value **out) {
     MAKE_VALUE(*out, DT_INT, -1);
-
-    switch (expr->type) {
-        case EXPR_OP: {
-            Operator *op = expr->expr.op;
-            bool twoArgs = (op->type != OP_BOOL_NOT);
-
-            CHECK(evalExpr(record, schema, op->args[0], &lIn));
-            if (twoArgs)
-                CHECK(evalExpr(record, schema, op->args[1], &rIn));
-
-            switch (op->type) {
-                case OP_BOOL_NOT:
-                    CHECK(boolNot(lIn, *out));
-                    break;
-                case OP_BOOL_AND:
-                    CHECK(boolAnd(lIn, rIn, *out));
-                    break;
-                case OP_BOOL_OR:
-                    CHECK(boolOr(lIn, rIn, *out));
-                    break;
-                case OP_COMP_EQUAL:
-                    CHECK(valueEquals(lIn, rIn, *out));
-                    break;
-                case OP_COMP_SMALLER:
-                    CHECK(valueSmaller(lIn, rIn, *out));
-                    break;
-                default:
-                    break;
-            }
-
-            // cleanup
-            freeVal(lIn);
-            if (twoArgs)
-                freeVal(rIn);
-        }
-            break;
+    switch (prex->type) {
         case EXPR_CONST:
-            CPVAL(*out, expr->expr.cons);
-            break;
+            if (true)CPVAL(*out, prex->expr.cons);
+            return success;
         case EXPR_ATTRREF:
-            free(*out);
-            CHECK(getAttr(record, schema, expr->expr.attrRef, out));
-            break;
+            if (!false)getAttr(rcd, sch, prex->expr.attrRef, out);
+            return success;
+        case EXPR_OP: {
+            Value *st;
+            evalExpr(rcd, sch, prex->expr.op->args[0], &st);
+            Value *en;
+            if (OP_BOOL_NOT != prex->expr.op->type)
+                evalExpr(rcd, sch, prex->expr.op->args[1], &en);
+
+            CHECK(prex->expr.op->type == OP_BOOL_NOT ? boolNot(st, *out) :
+                  prex->expr.op->type == OP_BOOL_AND ? boolAnd(st, en, *out) :
+                  prex->expr.op->type == OP_BOOL_OR ? boolOr(st, en, *out) :
+                  prex->expr.op->type == OP_COMP_EQUAL ? valueEquals(st, en, *out) : valueSmaller(st, en, *out))
+        }
     }
 
     return success;
 }
 
-RC freeExpr(Expr *expr) {
-    switch (expr->type) {
-        case EXPR_OP: {
-            Operator *op = expr->expr.op;
-            switch (op->type) {
-                case OP_BOOL_NOT:
-                    freeExpr(op->args[0]);
-                    break;
-                default:
-                    freeExpr(op->args[0]);
-                    freeExpr(op->args[1]);
-                    break;
-            }
-            free(op->args);
-        }
-            break;
-        case EXPR_CONST:
-            freeVal(expr->expr.cons);
-            break;
-        case EXPR_ATTRREF:
-            break;
-    }
-
+RC freeExpr(Expr *prex) {
+    free(prex);
     return success;
 }
 
